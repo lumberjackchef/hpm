@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes + Pi Memory System — Design Plan</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-card: #161b22;
+    --bg-hover: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-yellow: #d29922;
+    --accent-orange: #db6d28;
+    --accent-red: #f85149;
+    --accent-purple: #bc8cff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 32px 24px 24px;
+    text-align: center;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .header .subtitle { color: var(--text-dim); font-size: 15px; }
+  .header .meta { margin-top: 12px; font-size: 13px; color: var(--text-dim); }
+  .header .meta span { margin: 0 8px; }
+
+  .section { padding: 28px 24px; border-bottom: 1px solid var(--border); }
+  .section h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .section h2 .emoji { font-size: 22px; }
+  .section h3 { font-size: 16px; font-weight: 600; margin: 20px 0 10px; color: var(--accent); }
+  .section h4 { font-size: 14px; font-weight: 600; margin: 14px 0 6px; color: var(--text); }
+
+  p { margin-bottom: 12px; color: var(--text); font-size: 14px; }
+  ul, ol { margin: 8px 0 16px 20px; font-size: 14px; }
+  li { margin-bottom: 6px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 13px; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  th { background: var(--bg-hover); font-weight: 600; color: var(--accent); }
+  td { vertical-align: top; }
+
+  .callout {
+    border-radius: 8px; padding: 14px 18px; margin: 16px 0;
+    font-size: 13px; line-height: 1.6;
+    border-left: 4px solid;
+  }
+  .callout.info { background: #0c2d6b33; border-color: var(--accent); color: #c9d1d9; }
+  .callout.warn { background: #3d2e0033; border-color: var(--accent-yellow); color: #dcd6b4; }
+  .callout.danger { background: #3d000033; border-color: var(--accent-red); color: #f0c7c7; }
+  .callout.success { background: #003d1a33; border-color: var(--accent-green); color: #b4d9b4; }
+  .callout .label { font-weight: 600; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  code {
+    font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    background: var(--bg-hover); padding: 2px 6px; border-radius: 4px;
+    font-size: 13px; color: #f0c674;
+  }
+  pre {
+    background: #010409; border-radius: 8px; padding: 16px; margin: 12px 0;
+    overflow-x: auto; border: 1px solid var(--border); font-size: 13px;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    margin-right: 4px;
+  }
+  .badge.hermes { background: #58a6ff33; color: #58a6ff; border: 1px solid #58a6ff44; }
+  .badge.pi { background: #bc8cff33; color: #bc8cff; border: 1px solid #bc8cff44; }
+  .badge.both { background: #3fb95033; color: #3fb950; border: 1px solid #3fb95044; }
+  .badge.new { background: #db6d2833; color: #db6d28; border: 1px solid #db6d2844; }
+
+  .arch-diagram {
+    background: #010409; border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; margin: 16px 0; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    line-height: 1.9; white-space: pre; overflow-x: auto;
+  }
+
+  .timeline { list-style: none; margin: 12px 0; padding: 0; }
+  .timeline li {
+    position: relative; padding: 0 0 16px 24px; border-left: 2px solid var(--border);
+    margin-left: 8px; font-size: 14px;
+  }
+  .timeline li::before {
+    content: ''; position: absolute; left: -6px; top: 6px;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+  }
+  .timeline li .phase-tag {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--accent); display: block; margin-bottom: 2px;
+  }
+  .timeline li .phase-detail { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+
+  .footer {
+    padding: 24px; text-align: center; color: var(--text-dim); font-size: 13px;
+  }
+  .footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Hermes + Pi Memory System</h1>
+  <div class="subtitle">Composite Memory Architecture — Video-Inspired Design Plan</div>
+  <div class="meta">
+    <span>Based on: Simon Scrapes' "I Built The Best Claude Memory System"</span>
+    <span>Targets: <span class="badge hermes">Hermes Agent</span> <span class="badge pi">Pi Coding Agent</span></span>
+  </div>
+</div>
+
+<!-- ─────── JSON Metadata Block ─────── -->
+<pre style="margin: 0; border-radius: 0;">
+{
+  "schema": "memory-system-design-v1",
+  "source": "https://youtu.be/H9BUkgDf5Y4",
+  "source_type": "youtube",
+  "target_agents": ["hermes", "pi"],
+  "status": "validated",
+  "author": "Jenny (AI Executive Assistant), reviewed by deepseek-v4-pro",
+  "date": "2026-06-16",
+  "confidence": "high",
+  "key_corrections": [
+    "Immediate embedding (not batched) — memories queryable within seconds, not hours",
+    "SQLite WAL mode + busy timeout + write retry from day one",
+    "Hermes auto-capture sidecar is a Phase 1 deliverable, not Phase 2"
+  ]
+}
+</pre>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 0. EXECUTIVE SUMMARY                     -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🎯</span> Executive Summary</h2>
+
+  <p>The video dissects AI agent memory into <strong>three jobs</strong> — <em>Storage, Injection, and Recall</em> — then cherry-picks the winning approach from three frameworks for each job:</p>
+
+  <table>
+    <tr>
+      <th>Job</th>
+      <th>Framework Borrowed From</th>
+      <th>Key Idea</th>
+    </tr>
+    <tr>
+      <td><strong>Storage</strong></td>
+      <td>MemSearch</td>
+      <td>Auto-capture after every turn, summarized by a cheap model, appended to a daily log. No agent opinion on what matters — everything gets captured but condensed.</td>
+    </tr>
+    <tr>
+      <td><strong>Injection</strong></td>
+      <td>Hermes (frozen snapshot)</td>
+      <td>Identity + user profile + recent memories injected at session start. Capped at ~1,300 tokens. Cached once per session.</td>
+    </tr>
+    <tr>
+      <td><strong>Recall</strong></td>
+      <td>MemSearch (hybrid search) + GBrain (reranker + cited answers)</td>
+      <td>Multi-tier: check injected memory first → hybrid semantic/keyword vector search → reranker → written answer with citations. Admits when it doesn't know.</td>
+    </tr>
+  </table>
+
+  <div class="callout info">
+    <span class="label">💡 What This Means for Hermes + Pi</span>
+    Hermes already has frozen-snapshot injection (MEMORY.md/USER.md). Pi has an extension system for dynamic context. The composite approach fills each agent's gaps: Hermes needs <strong>auto-capture + semantic recall</strong>, Pi needs <strong>the whole system</strong> built via its extension API. A shared vector store bridges both.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 1. THE THREE JOBS — CURRENT STATE       -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🔍</span> 1. Current State Assessment</h2>
+
+  <h3>What Hermes Already Has</h3>
+  <table>
+    <tr><th>Job</th><th>Hermes</th><th>Grade</th></tr>
+    <tr>
+      <td>Storage</td>
+      <td>Manual <code>memory()</code> tool — agent decides what to save, TL;DR after each session. No auto-capture hook.</td>
+      <td><span style="color:var(--accent-yellow)">C+</span></td>
+    </tr>
+    <tr>
+      <td>Injection</td>
+      <td>Frozen snapshot of MEMORY.md (~2,200 chars) + USER.md (~1,375 chars) at session start. <strong>This is the same pattern the video recommends.</strong></td>
+      <td><span style="color:var(--accent-green)">A-</span></td>
+    </tr>
+    <tr>
+      <td>Recall</td>
+      <td><code>session_search</code> — FTS5 keyword search over past sessions. No semantic search, no vector index, no citations.</td>
+      <td><span style="color:var(--accent-red)">D+</span></td>
+    </tr>
+  </table>
+
+  <h3>What Pi (pi.dev) Has</h3>
+  <table>
+    <tr><th>Job</th><th>Pi</th><th>Grade</th></tr>
+    <tr>
+      <td>Storage</td>
+      <td>Nothing built-in. AGENTS.md and SYSTEM.md are static project instructions, not dynamic memory.</td>
+      <td><span style="color:var(--accent-red)">F</span></td>
+    </tr>
+    <tr>
+      <td>Injection</td>
+      <td>Auto-loads AGENTS.md from cwd + parent dirs. Compaction extension can customize summarization. <strong>Extension API can inject anything.</strong></td>
+      <td><span style="color:var(--accent-green)">B+</span> (extensible)</td>
+    </tr>
+    <tr>
+      <td>Recall</td>
+      <td>Nothing built-in. Extensions can implement RAG / long-term memory via <code>dynamic context</code> hook.</td>
+      <td><span style="color:var(--accent-yellow)">C</span> (potential via ext)</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <span class="label">⚠ Key Insight</span>
+    Neither agent has <strong>auto-capture</strong> or <strong>semantic recall</strong> — the two biggest upgrades from the video. Hermes has the injection layer covered. Pi needs everything built via its extension system. The shared opportunity is a <strong>common vector store</strong> that both agents write to and query.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 2. ARCHITECTURE OVERVIEW                -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🏗</span> 2. System Architecture</h2>
+
+  <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────────────┐
+│                        SHARED VECTOR STORE                          │
+│               (SQLite with sqlite-vec)                              │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  memories: content | embedding | metadata | timestamp | tags │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└──────────┬────────────────────┬──────────────────────┬──────────────┘
+           │                    │                      │
+           ▼                    ▼                      ▼
+  ┌─────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+  │   HERMES AGENT   │  │    PI AGENT      │  │   CRON EVALUATOR │
+  │                  │  │                  │  │    (shared)      │
+  │ STORAGE:         │  │ STORAGE:         │  │                  │
+  │ • auto-capture   │  │ • auto-capture   │  │ • decay scoring  │
+  │   hook (CLI)     │  │   ext (TS)       │  │ • eviction       │
+  │ • memory() tool  │  │                  │  │ • stats          │
+  │                  │  │                  │  │                  │
+  │ INJECTION:       │  │ INJECTION:       │  │                  │
+  │ • frozen snap. ✓ │  │ • dynamic ctx    │  │                  │
+  │   (MEMORY.md)    │  │   ext injects    │  │                  │
+  │                  │  │   memory summary │  │                  │
+  │ RECALL:          │  │                  │  │                  │
+  │ • session_search │  │ RECALL:          │  │                  │
+  │ • /memory-find   │  │ • /memory ext    │  │                  │
+  │   (hybrid query) │  │   (hybrid query) │  │                  │
+  │ • cited answers  │  │ • cited answers  │  │                  │
+  └─────────────────┘  └──────────────────┘  └──────────────────┘
+  </div>
+
+  <h3>Multi-Tier Recall Flow (from the video)</h3>
+  <div class="arch-diagram">
+User asks about X
+  │
+  ├─ TIER 0: Check injected memory (frozen snapshot in context)
+  │   └─ Found? → Answer directly from context (fastest, no API calls)
+  │   └─ Not found? → Continue
+  │
+  ├─ TIER 1: Vector hybrid search (semantic + keyword BM25)
+  │   └─ Query local vector DB with user's question
+  │   └─ Returns top-10 chunk candidates with scores
+  │
+  ├─ TIER 2: Reranker (cross-encoder second pass)
+  │   └─ Reorder candidates by relevance
+  │   └─ Keep top-3 to top-5
+  │
+  └─ TIER 3: Synthesize cited answer (GBrain pattern)
+      └─ LLM writes answer with source citations
+      └─ "I don't know" if nothing relevant found
+      └─ Always cite: "[source: 2026-05-12_daily.md#decision-3]"
+  </div>
+
+  <h3>Data Model</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td><code>text</code></td><td>UUID v4</td></tr>
+    <tr><td><code>content</code></td><td><code>text</code></td><td>The summarized memory entry text</td></tr>
+    <tr><td><code>embedding</code></td><td><code>vector(384/768)</code></td><td>Local embedding (e.g. all-MiniLM-L6-v2 or BGE-small)</td></tr>
+    <tr><td><code>source</code></td><td><code>text</code></td><td>Agent that wrote it: <code>hermes</code>, <code>pi</code></td></tr>
+    <tr><td><code>session_id</code></td><td><code>text</code></td><td>Source session ID for traceability</td></tr>
+    <tr><td><code>timestamp</code></td><td><code>datetime</code></td><td>When captured</td></tr>
+    <tr><td><code>tags</code></td><td><code>text[]</code></td><td>Auto-tags: project, client, topic, priority</td></tr>
+    <tr><td><code>decay_score</code></td><td><code>float</code></td><td>0.0 – 1.0, computed by cron evaluator</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 3. BUILD PLAN — 5 PHASES                -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">📋</span> 3. Build Plan (5 Phases)</h2>
+
+  <ul class="timeline">
+    <li>
+      <span class="phase-tag">Phase 1 — Foundation</span>
+      <strong>Vector Store + Auto-Capture CLI + Hermes Sidecar</strong>
+      <div class="phase-detail">
+        Set up sqlite-vec with WAL mode. Build <code>hpm</code> CLI (capture, query, save). Build the auto-capture sidecar that monitors Hermes <code>state.db</code> and captures every turn — this must work reliably before Phase 2 begins. All writes embed immediately (not batched), with SQLite concurrency safeguards from day one.<br>
+        <strong>Deliverable:</strong> Running auto-capture for Hermes with immediate-embed vector storage, demonstrated against a real session.
+      </div>
+    </li>
+    <li>
+      <span class="phase-tag">Phase 2 — Hermes Enhancement</span>
+      <strong>Hybrid Search + Cited Answers</strong>
+      <div class="phase-detail">
+        Replace FTS5-only recall with hybrid (semantic + BM25). Add reranker pass. Implement cited-answer synthesis over memory.<br>
+        <strong>Deliverable:</strong> Hermes can semantically recall and cite sources.
+      </div>
+    </li>
+    <li>
+      <span class="phase-tag">Phase 3 — Pi Integration</span>
+      <strong>Extension-Based Memory for Pi</strong>
+      <div class="phase-detail">
+        Build Pi extension: auto-capture hook, dynamic context injector, /memory command, session tree integration.<br>
+        <strong>Deliverable:</strong> Pi reads/writes shared memory store.
+      </div>
+    </li>
+    <li>
+      <span class="phase-tag">Phase 4 — Multi-Agent Coherence</span>
+      <strong>Cross-Agent Memory Sharing</strong>
+      <div class="phase-detail">
+        Both agents write to same store with tagged sources. Deduplication. Conflict resolution when both save contradictory facts. <strong>Can begin alongside Phase 3</strong> — dedup logic is pure database-layer (semantic dedup on insert, timestamp-win conflict resolution) and doesn't require agent-specific recall features to be complete.<br>
+        <strong>Deliverable:</strong> Hermes sees Pi's memories and vice versa.
+      </div>
+    </li>
+    <li>
+      <span class="phase-tag">Phase 5 — Polish &amp; Observability</span>
+      <strong>Decay Evaluator, Dashboard, Memory Hygiene</strong>
+      <div class="phase-detail">
+        Background cron evaluator (adaptive decay scoring + daily spot-checking 5 lowest-scoring entries). Dashboard. Eviction. Memory quality metrics.<br>
+        <strong>Deliverable:</strong> Self-maintaining memory system.
+      </div>
+    </li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 4. PHASE 1 — DEEP DIVE                  -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🔨</span> 4. Phase 1 Deep Dive: Foundation</h2>
+
+  <h3>4.1 Vector Store Decision</h3>
+
+  <table>
+    <tr><th>Option</th><th>Pros</th><th>Cons</th><th>Recommendation</th></tr>
+    <tr>
+      <td><strong>sqlite-vec</strong><br>(<code>asg017/sqlite-vec</code>)</td>
+      <td>Zero infrastructure. Same DB format as Hermes already uses. Embeddings stored inline. Works offline. SQLite FTS5 for BM25 keyword search natively.</td>
+      <td>Single-node (not a problem — you only need local).</td>
+      <td><strong>✅ The one and only choice</strong><br>Perfect for single-user local use</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <span class="label">⚠ SQLite Concurrency</span>
+    Three processes write to the same sqlite-vec DB (Hermes sidecar, Pi extension, cron evaluator). Without safeguards, concurrent writes cause <code>SQLITE_BUSY</code> — captures are lost, queries return stale data. <strong>Required from day one:</strong>
+    <ul>
+      <li><strong>WAL mode</strong> — <code>PRAGMA journal_mode=WAL;</code> at DB creation. Allows concurrent reads during writes.</li>
+      <li><strong>Write retry</strong> — CLI implements exponential backoff on <code>SQLITE_BUSY</code> (3 retries, 50ms base delay).</li>
+      <li><strong>Busy timeout</strong> — <code>PRAGMA busy_timeout=5000;</code> (5 second wait before failing).</li>
+      <li><strong>Single writer convention</strong> — The cron evaluator is the only batch writer; capture and query are fast single-row ops.</li>
+    </ul>
+  </div>
+
+  <h3>4.2 Local Embedding Model</h3>
+  <p>The video emphasizes <strong>on-device, zero API cost</strong> vectorization. Recommend:</p>
+  <table>
+    <tr><th>Model</th><th>Dimension</th><th>Quality</th><th>Speed</th><th>Package</th></tr>
+    <tr><td><code>all-MiniLM-L6-v2</code></td><td>384</td><td>Good</td><td>Very fast</td><td><code>sentence-transformers</code></td></tr>
+    <tr><td><code>BGE-small-en-v1.5</code></td><td>384</td><td>Better</td><td>Fast</td><td><code>sentence-transformers</code></td></tr>
+    <tr><td><code>BGE-base-en-v1.5</code></td><td>768</td><td>Best</td><td>Moderate</td><td><code>sentence-transformers</code></td></tr>
+  </table>
+
+  <div class="callout info">
+    <span class="label">💡 Recommendation: BGE-small-en-v1.5 (384d)</span>
+    Good balance of quality/speed for a local agent. Embeddings can be recomputed lazily. Runs on CPU on modern Macs in ~20ms per sentence. If you later add a GPU Droplet, swap in BGE-base or <code>intfloat/e5-mistral-7b-instruct</code> for higher quality.
+  </div>
+
+  <h3>4.3 Reranker Model</h3>
+  <p>For Tier 2 (reranker pass), use a cross-encoder. This is the <strong>most expensive</strong> inference step but only runs on Tier-1 candidates (top 10 → rerank 3-5):</p>
+  <table>
+    <tr><th>Model</th><th>Package</th><th>Latency (CPU, Mac)</th></tr>
+    <tr><td><code>cross-encoder/ms-marco-MiniLM-L-6-v2</code></td><td><code>sentence-transformers</code></td><td>~50ms per pair</td></tr>
+    <tr><td><code>BGE-reranker-v2-m3</code></td><td><code>FlagEmbedding</code></td><td>~100ms per pair (higher quality)</td></tr>
+  </table>
+
+  <h3>4.4 Auto-Capture Architecture</h3>
+
+  <div class="arch-diagram">
+After every conversation turn:
+  │
+  ├─ 1. Capture: Collect all new user + assistant messages since last capture
+  │     (tracked by session_id + last_captured_message_id)
+  │
+  ├─ 2. Summarize: Send to OpenCode Go API
+  │     POST https://opencode.ai/zen/go/v1/chat/completions
+  │     Authorization: Bearer ${OPENCODE_GO_API_KEY}
+  │     Model: configurable (e.g. minimax-m2.5 or deepseek-v4-flash)
+  │     Prompt: "Summarize the new information, decisions, facts, and
+  │              preferences discussed in this exchange. Be concise."
+  │     Expects: 2-4 bullet points max
+  │     Cost: ~$0.0002/call at current model pricing
+  │
+  ├─ 3. Tag: Extract named entities + auto-tags
+  │     (project names, client names, technical topics)
+  │     Optional — dedicated NER model or LLM call
+  │
+  ├─ 4. Embed: Compute vector embedding via local model
+  │
+  └─ 5. Store: Write to vector store
+        content = summary text
+        embedding = vector
+        source = "hermes" | "pi"
+        timestamp = now
+        tags = ["project:jarvis", "client:uncle-reds", ...]
+  </div>
+
+  <div class="callout success">
+    <span class="label">✅ Why OpenCode Go for Summarization</span>
+    <strong>No extra provider, no extra API key, no extra billing relationship.</strong>
+    The <code>hpm</code> CLI calls the same endpoint Hermes already uses:
+    <ul>
+      <li>Base URL: <code>https://opencode.ai/zen/go/v1</code></li>
+      <li>Auth: <code>OPENCODE_GO_API_KEY</code> (already in your .env)</li>
+      <li>Model: configurable — use <code>minimax-m2.5</code> (fastest/cheapest) or <code>deepseek-v4-flash</code> (same as your main model)</li>
+      <li>Zero additional setup. One HTTP call.</li>
+    </ul>
+    The summarization model is <strong>configurable per environment</strong> (dev vs. prod) so you can use a cheap model for daily capture and a stronger one for spot-check evals.
+  </div>
+
+  <h3>4.5 Capture Frequency Trade-offs</h3>
+  <table>
+    <tr><th>Strategy</th><th>Granularity</th><th>Storage</th><th>Recall Quality</th><th>Cost</th></tr>
+    <tr><td><strong>Every turn</strong> (video's choice)</td><td>Fine</td><td>Higher (but summarized)</td><td>Best — nothing missed</td><td>Highest — cheap model per turn</td></tr>
+    <tr><td><strong>Every N turns</strong></td><td>Medium</td><td>Medium</td><td>Good — may lose context</td><td>Lower</td></tr>
+    <tr><td><strong>End of session only</strong></td><td>Coarse</td><td>Lowest</td><td>Worst — long sessions lose middle</td><td>Cheapest</td></tr>
+    <tr><td><strong>On explicit /remember</strong></td><td>User-driven</td><td>Minimal</td><td>Leaky — user forgets to save</td><td>~Free (tool call)</td></tr>
+  </table>
+
+  <div class="callout success">
+    <span class="label">✅ Recommendation: Every-turn capture, immediate embedding</span>
+    Follow the video's pattern: after each turn, summarize via the OpenCode Go API (e.g. <code>minimax-m2.5</code> or <code>deepseek-v4-flash</code>) and <strong>embed immediately</strong> using the local BGE-small model (~20ms on CPU). The embedding cost per capture is negligible — deferring batch embedding until the next cron run would leave memories invisible to semantic recall for hours, which defeats the purpose of a memory system. The daily log at <code>~/.hermes/memories/daily/2026-06-16.md</code> is kept as a text backup and audit trail, <strong>not</strong> as the primary recall source.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 5. PHASE 2 — HERMES ENHANCEMENT        -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🛠</span> 5. Phase 2: Hermes Enhancement</h2>
+
+  <h3>5.1 What Changes</h3>
+  <table>
+    <tr><th>Component</th><th>Current</th><th>Target</th></tr>
+    <tr>
+      <td>Auto-capture</td>
+      <td>Manual <code>memory()</code> tool only</td>
+      <td>Background hook fires after every turn: capture → summarize → append to daily log</td>
+    </tr>
+    <tr>
+      <td>Recall</td>
+      <td><code>session_search</code> (FTS5 keyword only)</td>
+      <td><code>/memory-find &lt;query&gt;</code> — hybrid (semantic + BM25) → reranker → cited answer</td>
+    </tr>
+    <tr>
+      <td>Injection</td>
+      <td>Frozen snapshot (goes into system prompt)</td>
+      <td>Already good. Optionally: inject top-3 relevant memories from vector store at session start</td>
+    </tr>
+    <tr>
+      <td>Memory tool</td>
+      <td><code>memory()</code> with MEMORY.md + USER.md</td>
+      <td>Keep for durable facts. Auto-capture handles ephemeral/decision memory.</td>
+    </tr>
+  </table>
+
+  <h3>5.2 Hermes Integration Points</h3>
+  <table>
+    <tr><th>Mechanism</th><th>How It Works</th><th>For What</th></tr>
+    <tr>
+      <td><code>terminal(background=true, notify_on_complete=true)</code></td>
+      <td>Spawn a background process that tails Hermes output/session DB and runs capture logic.</td>
+      <td>Auto-capture daemon</td>
+    </tr>
+    <tr>
+      <td><code>cronjob(script=..., no_agent=true)</code></td>
+      <td>Scheduled batch embedding of daily logs + decay scoring.</td>
+      <td>Batch embedding, decay evaluator</td>
+    </tr>
+    <tr>
+      <td>Custom tool (Python CLI)</td>
+      <td>A <code>hpm</code> CLI tool registered via tool/registry. Hermes calls it natively.</td>
+      <td><code>/memory-find</code> hybrid search + cited answers</td>
+    </tr>
+    <tr>
+      <td>Plugin</td>
+      <td>Full Hermes plugin with lifecycle hooks.</td>
+      <td>Auto-capture hook after tool dispatch</td>
+    </tr>
+  </table>
+
+  <h3>5.3 Slash Command: <code>/memory-find</code></h3>
+  <pre><code>/memory-find When did we decide to switch from Stripe to Paddle?
+
+  → **Decision: Paddle for payment processing**
+    Made on 2026-05-12 (session: jarvis-travel-payments-v2)
+    Context: Stripe's APAC support was insufficient for Japanese market entry
+    Tagged: project:jarvis, topic:payments, client:internal
+
+  → **Additional context:**
+    Paddle integration branch: `feat/paddle-migration` (merged 2026-05-14)
+    Monthly savings estimate: ~$240/mo in transaction fees
+    Caveat: Paddle takes 30-day payment hold — flag for cash flow
+
+  *Citations: [2026-05-12_daily.md#3] [session:abc123] [memory:payment-decision]*
+  *Confidence: High — source found with semantic match*
+  </code></pre>
+
+  <div class="callout warn">
+    <span class="label">⚠ Integration Risk</span>
+    Hermes doesn't expose a native "post-turn hook" in its plugin API (currently plugins add tools, slash commands, and lifecycle hooks but not mid-conversation event hooks). The auto-capture will need to run as a <strong>background sidecar process</strong> that watches <code>~/.hermes/state.db</code> (the SQLite session store) for new messages, captures them, summarizes, and stores. This is architecturally clean but means the capture process isn't embedded in Hermes' event loop — it's an independent observer.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 6. PHASE 3 — PI INTEGRATION             -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🧩</span> 6. Phase 3: Pi Extension</h2>
+
+  <h3>6.1 Pi's Extension Surface</h3>
+  <p>Pi exposes <strong>extensions in TypeScript</strong> that can hook into:</p>
+  <table>
+    <tr><th>Hook / API</th><th>What We'd Use It For</th></tr>
+    <tr><td><code>Dynamic Context</code> extension</td><td>Inject relevant memory summaries into the start of each Pi session</td></tr>
+    <tr><td>Tool registration</td><td>Add <code>/memory-find</code> and <code>/memory-save</code> as first-class Pi commands</td></tr>
+    <tr><td>Keyboard shortcuts</td><td><code>Ctrl+M</code> to quick-save a fact</td></tr>
+    <tr><td>Event hooks (if available)</td><td>Auto-capture hook after each tool call</td></tr>
+  </table>
+
+  <div class="callout info">
+    <span class="label">🔍 Need to Investigate</span>
+    Pi's extension API docs need review to determine if it provides:
+    <ul>
+      <li>A per-turn / post-tool-call hook (for auto-capture)</li>
+      <li>Compaction callback (for memory-aware summarization)</li>
+      <li>Direct access to the session tree (for tagging memories to tree nodes)</li>
+    </ul>
+    These are available on <a href="https://github.com/earendil-works/pi" style="color: var(--accent);">Pi's GitHub</a> and in <code>docs/</code> within the package.
+  </div>
+
+  <h3>6.2 Pi Extension Sketch</h3>
+  <pre><code>// pi-memory-extension.ts — rough design
+
+import { Extension, Tool, Command } from '@earendil-works/pi-coding-agent';
+
+export class MemoryExtension implements Extension {
+  name = 'pi-memory';
+  version = '0.1.0';
+
+  tools: Tool[] = [
+    {
+      name: 'memory-find',
+      description: 'Search past memories with semantic understanding',
+      handler: async (query: string) => {
+        // Call shared Python CLI: `hpm query "..." --limit 5`
+        // Parse results, return with citations
+      }
+    },
+    {
+      name: 'memory-save',
+      description: 'Explicitly save a fact to memory',
+      handler: async (content: string, tags?: string[]) => {
+        // Call shared Python CLI: `hpm save "..." --tags ...`
+      }
+    }
+  ];
+
+  // If Pi exposes a post-turn hook:
+  onAfterTurn?: async (turn) => {
+    const summary = await cheapLLM.summarize(turn.messages);
+    await saveToVectorStore(summary, { source: 'pi', ... });
+  };
+
+  // Inject relevant context at session start:
+  augmentContext?: async () => {
+    const recentMemories = await queryVectorStore('', { limit: 5 });
+    return `## Relevant Memories\n${recentMemories.map(m =>
+      `- ${m.content} [source: ${m.timestamp}]`
+    ).join('\n')}`;
+  };
+}
+</code></pre>
+
+  <h3>6.3 Shared CLI Bridge</h3>
+  <p>Both agents communicate with the vector store through a <strong>shared Python CLI</strong> (<code>hpm</code>):</p>
+  <table>
+    <tr><th>Command</th><th>Description</th></tr>
+    <tr><td><code>hpm capture &lt;text&gt;</code></td><td>Summarize and store a turn</td></tr>
+    <tr><td><code>hpm query "..." [--limit N] [--tags ...]</code></td><td>Hybrid search + reranker + cited answer</td></tr>
+    <tr><td><code>hpm save "fact" [--tags ...]</code></td><td>Direct save (for explicit /remember)</td></tr>
+    <tr><td><code>hpm embed --batch</code></td><td>Batch-embed un-embedded daily log entries</td></tr>
+    <tr><td><code>hpm decay --run</code></td><td>Run decay evaluator</td></tr>
+    <tr><td><code>hpm status</code></td><td>Show store stats (entries, oldest, newest, usage)</td></tr>
+  </table>
+
+  <p>The CLI lives in one place and both agents call it. This avoids duplicating the memory logic in two codebases.</p>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 7. PHASE 4 — CROSS-AGENT COHERENCE      -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🤝</span> 7. Phase 4: Cross-Agent Coherence</h2>
+
+  <h3>7.1 Shared Memory Challenges</h3>
+  <table>
+    <tr><th>Challenge</th><th>Solution</th></tr>
+    <tr>
+      <td>Both agents save contradictory facts</td>
+      <td>Timestamp wins — newer fact supersedes. Old fact is archived (not deleted) with a <code>superseded_by</code> pointer. The cited-answer synthesis includes a conflict note: <em>"Note: this was updated on 2026-06-14..."</em></td>
+    </tr>
+    <tr>
+      <td>Duplicate entries</td>
+      <td>Content-dedup via SimHash on summary text before storing. Matches within 0.85 semantic similarity are merged (update timestamp, append source).</td>
+    </tr>
+    <tr>
+      <td>Context window pollution</td>
+      <td>Injection is capped at ~1,300 tokens (video's recommendation). The injected content is <strong>dynamically selected</strong>: top-3 most relevant memories + frozen profile + essential facts, not everything.</td>
+    </tr>
+    <tr>
+      <td>Privacy / scope</td>
+      <td>Each memory entry is tagged with <code>access_scope</code>. Hermes sees all. Pi extension filters by scope if configured.</td>
+    </tr>
+  </table>
+
+  <h3>7.2 Deduplication Flow</h3>
+  <div class="arch-diagram">
+Before insert:
+  │
+  ├─ 1. Compute embedding of new content
+  │
+  ├─ 2. Search for nearest neighbor (cosine similarity > 0.85)
+  │   └─ No match → INSERT (new entry)
+  │   └─ Match found →
+  │       ├─ Update timestamp to now
+  │       ├─ Append source to source array ["hermes", "pi"]
+  │       ├─ If content differs significantly, store as variant
+  │       └─ Don't create duplicate row
+  │
+  └─ 3. Return success
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 8. PHASE 5 — OBSERVABILITY              -->
+<!-- ════════════════════════════════════════ -->
+<!-- 8. PHASE 5 — OBSERVABILITY              -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">📊</span> 8. Phase 5: Decay Evaluator &amp; Dashboard</h2>
+
+  <h3>5.1 Decay Model</h3>
+  <p>From the <strong>context-engine-design</strong> skill at <code>~/code/context-engine/bin/decay_evaluator.py</code>:</p>
+
+  <pre><code>score = 0.5 ^ (hours_since_reinforcement / half_life)</code></pre>
+
+  <table>
+    <tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>half_life</code></td><td>168 hours (1 week)</td><td>How long before a memory's score halves without reinforcement</td></tr>
+    <tr><td><code>eviction_threshold</code></td><td>0.25</td><td>Below this → flagged for potential eviction</td></tr>
+    <tr><td><code>reinforcement</code></td><td>On access / match</td><td>Every time a memory is retrieved in a query, its score resets to 1.0 (reinforced)</td></tr>
+  </table>
+
+  <h3>5.2 Spot-Check Loop (Silent Feedback Loop Mitigation)</h3>
+  <p>Pure decay models have a blind spot: a stale entry keeps being retrieved, the user doesn't correct it, and absence of correction looks like reinforcement. Mitigation — run <strong>once per day</strong> as part of the daily cron cycle, sampling the 5 lowest-scoring entries:</p>
+
+  <div class="arch-diagram">
+Every evaluation cycle:
+  │
+  ├─ 1. Sample the 5 lowest-scoring entries
+  │     (most likely to be stale)
+  │
+  ├─ 2. Send to LLM for spot check:
+  │     "Rate each entry as STALE / QUESTIONABLE / VALID / INSUFFICIENT"
+  │
+  ├─ 3. Adjust score:
+  │     STALE       → score -= 0.3
+  │     QUESTIONABLE → score -= 0.1
+  │     VALID       → score += 0.05
+  │     (clamped to [0.0, 1.0])
+  │
+  ├─ 4. Log reasoning for auditing
+  │
+  └─ 5. The LLM never directly evicts — only adjusts scores
+  </div>
+
+  <h3>5.3 Dashboard</h3>
+  <p>Self-contained HTML (Chart.js from CDN, no server needed) with:</p>
+  <ul>
+    <li><strong>Score-over-time</strong> line chart with threshold line + spot-check markers</li>
+    <li><strong>Distribution histogram</strong> — how many entries at each score level</li>
+    <li><strong>Full entries table</strong> with filters (source, tags, status)</li>
+    <li><strong>Most-recently-reinforced</strong> and oldest-unreinforced lists</li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 10. RISKS & MITIGATIONS                     -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">⚠️</span> 9. Risks &amp; Mitigations</h2>
+
+  <table>
+    <tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr>
+    <tr>
+      <td>Pi extension API doesn't expose a post-turn hook</td>
+      <td>Medium</td>
+      <td>High — auto-capture for Pi requires polling or manual save</td>
+      <td>Fall back to session-tree-based capture: poll Pi's session file for new branches. Or use a background watcher.</td>
+    </tr>
+    <tr>
+      <td>Local embedding model quality too low for good recall</td>
+      <td>Medium</td>
+      <td>Medium — semantic search returns irrelevant results</td>
+      <td>Use hybrid (BM25 + semantic) so keyword matching covers embedding gaps. Upgrade to BGE-base if needed.</td>
+    </tr>
+    <tr>
+      <td>Memory bloat from auto-capture over-capturing</td>
+      <td>Low</td>
+      <td>Medium — daily logs grow, embedding costs increase</td>
+      <td>Strict summarization (max 4 bullets per turn). Daily log capped at 100 entries. Decay evaluator cleans up.</td>
+    </tr>
+    <tr>
+      <td>Cross-agent dedup fails, store fills with near-duplicates</td>
+      <td>Medium</td>
+      <td>Low-Medium</td>
+      <td>Semantic dedup on insert. Periodic cleanup pass in decay evaluator. Dashboard shows duplicate clusters.</td>
+    </tr>
+    <tr>
+      <td><strong>SQLite concurrency</strong> — three writers to one DB</td>
+      <td>Medium</td>
+      <td>High</td>
+      <td>WAL mode + busy timeout + write retry baked into CLI from day one.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 10. RECOMMENDED FIRST STEP           -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">🚀</span> 10. Recommended First Step</h2>
+
+  <div class="callout success">
+    <span class="label">✅ Start Here: Phase 1, Chunk 1</span>
+    <strong>Build sqlite-vec + hpm CLI + auto-capture sidecar + immediate-embedding demo.</strong>
+  </div>
+
+  <p><strong>Scope:</strong> A single session, ~3-4 hours:</p>
+  <ol>
+    <li><strong>Set up sqlite-vec with WAL mode</strong> — install extension, create DB with WAL, busy timeout, and the full schema</li>
+    <li><strong>Install BGE-small embedding model</strong> — <code>pip install sentence-transformers</code> + verify on a test sentence</li>
+    <li><strong>Build <code>hpm capture</code></strong> — takes raw text, calls OpenCode Go API (configurable model, e.g. <code>minimax-m2.5</code>) to summarize, embeds immediately with local model, stores with retry</li>
+    <li><strong>Build <code>hpm query</code></strong> — hybrid search (sqlite-vec ANN + FTS5 BM25), returns top-5 with scores</li>
+    <li><strong>Build <code>hpm save</code></strong> — direct fact save for explicit /remember</li>
+    <li><strong>Build Hermes auto-capture sidecar</strong> — watches <code>~/.hermes/state.db</code> for new messages, pipes them through capture</li>
+    <li><strong>Demo:</strong> Run a conversation in Hermes, let the sidecar capture it, then query it back with a different wording</li>
+  </ol>
+
+  <p><strong>Acceptance criteria:</strong></p>
+  <ul>
+    <li>A memory saved as "switched from Stripe to Paddle for Japanese market" is found with query "what payment processor did we pick for Japan"</li>
+    <li>Result includes a source timestamp and session reference</li>
+    <li>The Hermes sidecar is running, live-captures a turn, and the memory is queryable within seconds (not hours)</li>
+    <li>Hermes can call the CLI from a terminal command</li>
+  </ul>
+
+  <div class="callout info">
+    <span class="label">💡 Why This First</span>
+    This validates the <strong>highest-risk unknowns</strong> in one shot:
+    <ul>
+      <li>Does BGE-small provide good enough semantic recall for your domain?</li>
+      <li>Does sqlite-vec with WAL mode handle concurrent writes cleanly?</li>
+      <li>Can the cheap model produce summaries that preserve decision context?</li>
+      <li>Does the Hermes state.db sidecar reliably capture every turn?</li>
+    </ul>
+    All must work before any agent integration is worth building. If this demo fails, the architecture needs different choices — and it's better to discover that before writing extension code.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- 11. APPENDIX — VIDEO TRANSCRIPT KEY EXCERPTS -->
+<!-- ════════════════════════════════════════ -->
+<div class="section">
+  <h2><span class="emoji">📝</span> 11. Appendix: Key Excerpts from the Video</h2>
+
+  <table>
+    <tr><th>Topic</th><th>Excerpt</th></tr>
+    <tr>
+      <td>Perfect memory definition</td>
+      <td><em>"It remembers a decision you made 6 months ago and finds it even when you can't remember the exact words. It loads the right context automatically so you never start from zero. And when it gives you an answer, it can tell you exactly where that answer came from. And even when it doesn't know, it says so instead of confidently making something up."</em></td>
+    </tr>
+    <tr>
+      <td>Storage variables</td>
+      <td><em>"Who triggers the save? Is it a hook firing automatically or is it the agent deciding? Secondly, what form does it save in? Verbatim or summarized?"</em></td>
+    </tr>
+    <tr>
+      <td>Injection variables</td>
+      <td><em>"Hook that loads the right files every session so it's guaranteed... or add context to something the agent decides to pull. And underneath that, do we have a cap on the number of characters?"</em></td>
+    </tr>
+    <tr>
+      <td>Recall variables</td>
+      <td><em>"Keyword search finds exact words, semantic search finds by meaning, hybrid does both."</em></td>
+    </tr>
+    <tr>
+      <td>Why composite</td>
+      <td><em>"No single system had a comprehensive answer to the three jobs of storage, injection, and recall. So we took the best of each framework and pulled it into one comprehensive system that's plug-and-play."</em></td>
+    </tr>
+    <tr>
+      <td>Cited answers</td>
+      <td><em>"A confident answer with no source is worse than useless when you're running real work for a client."</em></td>
+    </tr>
+    <tr>
+      <td>Team scaling</td>
+      <td><em>"Memory has to be shared where it should be and private where it shouldn't... One shared store with row-level security."</em> <strong>(Out of scope — single-user local only. Retained for reference if needs change.)</strong></td>
+    </tr>
+  </table>
+</div>
+
+<div class="footer">
+  Generated by <strong>Jenny</strong> (AI Executive Assistant) for Ryan.<br>
+  Source video: <a href="https://youtu.be/H9BUkgDf5Y4">Simon Scrapes — I Built The Best Claude Memory System</a><br>
+  Based on MemSearch + Hermes + GBrain composite architecture.
+</div>
+
+</body>
+</html>
