@@ -92,7 +92,9 @@ def query(query: str, limit: int, tags: tuple[str, ...], mode: str) -> None:
             score = row.get("distance", row.get("rank", 0))
             click.echo(f"\n[{i}] (score: {score:.4f})")
             click.echo(f"    {row['content']}")
-            click.echo(f"    id: {row['id']}  source: {row['source']}")
+            src = row['source']
+            source_display = ', '.join(src) if isinstance(src, list) else src
+            click.echo(f"    id: {row['id']}  source: {source_display}")
             if row.get("tags"):
                 click.echo(f"    tags: {', '.join(row['tags'])}")
     except Exception as exc:

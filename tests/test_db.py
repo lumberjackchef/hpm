@@ -75,7 +75,7 @@ def test_insert_and_vector_query(conn):
     row = db.get_memory_by_id(conn, mem_id)
     assert row is not None
     assert row["content"] == "Test memory about jarvis travel"
-    assert row["source"] == "hermes"
+    assert row["source"] == ["hermes"]
     assert row["session_id"] == "test-session-1"
     assert row["tags"] == ["project:jarvis", "topic:testing"]
     assert 0.0 <= row["decay_score"] <= 1.0
