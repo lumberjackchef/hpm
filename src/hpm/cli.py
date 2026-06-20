@@ -8,7 +8,7 @@ import webbrowser
 import click
 
 from . import answer as answer_module
-from . import config, daily, embed, rerank, summarize
+from . import config, daily, summarize
 from . import dashboard as dashboard_module
 from . import db as db_module
 from . import decay as decay_module
@@ -21,6 +21,7 @@ from . import sidecar as sidecar_module
 @click.option("--session-id", help="Source session ID for traceability")
 @click.option("--no-summarize", is_flag=True, help="Skip LLM summarization, store raw text")
 def capture(text: str, tags: tuple[str, ...], session_id: str | None, no_summarize: bool) -> None:
+    from . import embed
     """Capture a conversation turn: summarize, embed, and store."""
     try:
         conn = db_module.get_connection()
@@ -65,6 +66,7 @@ def capture(text: str, tags: tuple[str, ...], session_id: str | None, no_summari
 @click.option("--mode", type=click.Choice(["hybrid", "vector", "keyword"]), default="vector",
               show_default=True, help="Search mode")
 def query(query: str, limit: int, tags: tuple[str, ...], mode: str) -> None:
+    from . import embed
     """Search memory with hybrid semantic + keyword retrieval."""
     try:
         conn = db_module.get_connection()
@@ -110,6 +112,7 @@ def query(query: str, limit: int, tags: tuple[str, ...], mode: str) -> None:
 @click.option("--tags", "-t", multiple=True, help="Tags to attach (e.g. project:jarvis)")
 @click.option("--session-id", help="Source session ID for traceability")
 def save(fact: str, tags: tuple[str, ...], session_id: str | None) -> None:
+    from . import embed
     """Save an explicit fact to memory (skips summarization)."""
     try:
         conn = db_module.get_connection()
@@ -154,6 +157,8 @@ def sidecar(once: bool, poll_interval: float) -> None:
 @click.option("--limit", "-l", default=5, show_default=True, help="Max results")
 @click.option("--no-rerank", is_flag=True, help="Skip the cross-encoder reranker pass")
 def answer(query: str, limit: int, no_rerank: bool) -> None:
+    from . import embed, rerank  # lazy: heavy imports (fastembed + sentence-transformers)
+
     """Full recall pipeline: hybrid search → reranker → cited answer."""
     try:
         conn = db_module.get_connection()

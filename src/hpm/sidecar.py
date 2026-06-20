@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import config, daily, embed, summarize
+from . import config, daily, summarize
 from . import db as db_module
 
 logger = logging.getLogger(__name__)
@@ -108,6 +108,9 @@ def build_turns(
 
 
 # ── Capture pipeline ─────────────────────────────────────────────────────
+
+
+from . import embed  # noqa: E402
 
 
 def capture_turn_to_memory(

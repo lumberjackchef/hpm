@@ -27,7 +27,6 @@ from hpm import (  # noqa: E402, I001
     config,
     daily,
     db as db_module,
-    embed,
     rerank,
     summarize,
 )
@@ -121,6 +120,9 @@ TOOL_DEFINITIONS = [
 ]
 
 
+from hpm import embed
+
+
 def handle_memory_find(query: str, limit: int = 5) -> str:
     """Full recall pipeline: hybrid → reranker → cited answer."""
     conn = db_module.get_connection()
@@ -138,6 +140,7 @@ def handle_memory_find(query: str, limit: int = 5) -> str:
 
 
 def handle_memory_save(fact: str, tags: str | None = None) -> str:
+    from hpm import embed
     """Save a fact to memory."""
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     conn = db_module.get_connection()
@@ -156,6 +159,7 @@ def handle_memory_save(fact: str, tags: str | None = None) -> str:
 
 
 def handle_memory_capture(text: str, tags: str | None = None) -> str:
+    from hpm import embed
     """Capture a conversation turn."""
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     conn = db_module.get_connection()
