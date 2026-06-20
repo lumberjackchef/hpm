@@ -25,7 +25,15 @@ If the engineer has the repo checked out at a different path, update the `comman
 
 ### 2. Configure the LLM Provider
 
-hpm supports multiple LLM providers for summarization and answer synthesis, configurable via environment variables:
+hpm supports multiple LLM providers for summarization and answer synthesis. The easiest way to configure it is:
+
+```bash
+hpm setup
+```
+
+This walks you through provider selection, API key entry, and model configuration — all saved to `~/.hpm/.env`.
+
+Or manually via environment variables:
 
 | Provider | `HPM_LLM_PROVIDER` | API Key | Default Model |
 |---|---|---|---|

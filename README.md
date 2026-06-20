@@ -8,6 +8,9 @@ Shared local vector memory for [Hermes Agent](https://hermes-agent.nousresearch.
 # Install
 pip install -e .
 
+# Run setup to configure your LLM provider
+hpm setup
+
 # Save a fact
 hpm save "The sky is blue" --tags topic:weather
 
@@ -71,6 +74,7 @@ Memory scores decay exponentially (half-life: 1 week) and are reinforced on ever
 
 | Command | Description |
 |---------|-------------|
+| `hpm setup` | Interactive configuration walkthrough (provider, API key, model) |
 | `hpm save <fact>` | Save an explicit fact (no summarization) |
 | `hpm capture <text>` | Capture a turn: summarize, embed, store |
 | `hpm query <query>` | Search memory (vector, keyword, or hybrid) |

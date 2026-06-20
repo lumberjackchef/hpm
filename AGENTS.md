@@ -66,6 +66,7 @@ entirely on-device with sqlite-vec.
 
 ```bash
 # CLI entry point
+hpm setup
 hpm capture <text> [--tags ...] [--session-id] [--no-summarize]
 hpm query "<query>" [--limit N] [--tags ...] [--mode vector|keyword|hybrid]
 hpm save "<fact>" [--tags ...]
