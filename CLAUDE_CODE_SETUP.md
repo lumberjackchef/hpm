@@ -40,15 +40,16 @@ If you have an Anthropic key but no OpenCode account, set:
 export HPM_LLM_PROVIDER=anthropic
 export ANTHROPIC_API_KEY=sk-ant-***
 
-# Or persist in ~/.hermes/.env:
-echo 'HPM_LLM_PROVIDER=anthropic' >> ~/.hermes/.env
-echo 'ANTHROPIC_API_KEY=sk-ant-***' >> ~/.hermes/.env
+# Or persist in ~/.hpm/.env:
+mkdir -p ~/.hpm
+echo 'HPM_LLM_PROVIDER=anthropic' >> ~/.hpm/.env
+echo 'ANTHROPIC_API_KEY=sk-ant-***' >> ~/.hpm/.env
 ```
 
 If you do have an OpenCode key, the default works as-is:
 
 ```bash
-echo 'OPENCODE_GO_API_KEY=***' >> ~/.hermes/.env
+echo 'OPENCODE_GO_API_KEY=***' >> ~/.hpm/.env
 ```
 
 To override the model for any provider:

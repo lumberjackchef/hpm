@@ -18,6 +18,8 @@ import numpy as np
 import numpy.typing as npt
 import sqlite_vec
 
+from . import config
+
 T = TypeVar("T")
 
 _HERMES_MEMORIES_DIR = Path.home() / ".hermes" / "memories"
@@ -77,11 +79,30 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+_DEFAULT_DB_PATH = config.HPM_DIR / "memories.db"
+_LEGACY_DB_PATH = config._LEGACY_HPM_DIR / "memories.db"
+
+
 def _default_db_path() -> str:
-    """Return the path to the memories database, ensuring parent dir exists."""
-    db_path = os.environ.get("HPM_DB_PATH", str(_DEFAULT_DB_PATH))
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    return db_path
+    """Return the path to the memories database, ensuring parent dir exists.
+
+    Prefers ``~/.hpm/memories.db`` (canonical). Falls back to the legacy
+    ``~/.hermes/memories/memories.db`` location if that already exists.
+    """
+    env_path = os.environ.get("HPM_DB_PATH")
+    if env_path:
+        Path(env_path).parent.mkdir(parents=True, exist_ok=True)
+        return env_path
+
+    # Canonical location
+    canonical = config.HPM_DIR / "memories.db"
+    legacy = config._LEGACY_HPM_DIR / "memories.db"
+
+    if legacy.exists():
+        return str(legacy)
+
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    return str(canonical)
 
 
 def get_connection(db_path: str | None = None) -> sqlite3.Connection:

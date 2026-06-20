@@ -252,7 +252,7 @@ def status() -> None:
 
 
 @click.command()
-@click.option("--output", "-o", default="~/.hermes/memories/dashboard.html",
+@click.option("--output", "-o", default="~/.hpm/dashboard.html",
               show_default=True, help="Output path for the HTML dashboard")
 def dashboard(output: str) -> None:
     """Generate a self-contained HTML memory dashboard."""

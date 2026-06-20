@@ -3,12 +3,50 @@
 import os
 from pathlib import Path
 
-HPM_DIR = Path.home() / ".hermes" / "memories"
+# ── Env file loader ──────────────────────────────────────────────────────
+# Load ~/.hpm/.env before reading any env vars so all os.environ.get() calls
+# below pick up values from it. Silently no-ops if the file doesn't exist.
+
+_HPM_ENV_DIR = Path.home() / ".hpm"
+_HPM_ENV_FILE = _HPM_ENV_DIR / ".env"
+
+
+def _load_dotenv(path: Path) -> None:
+    """Load a simple KEY=VALUE env file into the process environment.
+
+    Only sets variables not already set in the environment (no overwrite).
+    Supports quoted values and comments (lines starting with #).
+    """
+    if not path.exists():
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip("\"'").strip()
+            if key and key not in os.environ:
+                os.environ[key] = val
+
+
+_load_dotenv(_HPM_ENV_FILE)
+
+# Also check ~/.hermes/.env for backward compatibility (legacy location)
+_load_dotenv(Path.home() / ".hermes" / ".env")
+
+# ── Data directory ───────────────────────────────────────────────────────
+# The canonical location is ~/.hpm/, but ~/.hermes/memories/ is checked as
+# a fallback for users with existing data from before the migration.
+
+HPM_DIR = _HPM_ENV_DIR  # ~/.hpm
+_LEGACY_HPM_DIR = Path.home() / ".hermes" / "memories"
+
 DEFAULT_DB_PATH = HPM_DIR / "memories.db"
 DAILY_LOG_DIR = HPM_DIR / "daily"
 
 # ── LLM Provider ─────────────────────────────────────────────────────────
-#
 # Set HPM_LLM_PROVIDER to one of:
 #   "opencode"   — OpenCode Go (OpenAI-compatible) [default]
 #   "anthropic"  — Anthropic Messages API
@@ -17,7 +55,6 @@ DAILY_LOG_DIR = HPM_DIR / "daily"
 
 LLM_PROVIDER = os.environ.get("HPM_LLM_PROVIDER", "opencode").lower()
 
-# OpenAI-compatible providers share the same API shape.
 # Provider-specific env vars:
 #   opencode:  OPENCODE_GO_API_KEY,  OPENCODE_GO_BASE_URL
 #   openai:    OPENAI_API_KEY,       OPENAI_BASE_URL

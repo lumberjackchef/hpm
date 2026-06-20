@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 from . import db as db_module
 
-DASHBOARD_PATH = "~/.hermes/memories/dashboard.html"
+DASHBOARD_PATH = "~/.hpm/dashboard.html"
 
 
 def _score_distribution(conn: "sqlite3.Connection") -> dict[str, int]:
