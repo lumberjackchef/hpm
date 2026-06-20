@@ -11,9 +11,7 @@ import logging
 import sqlite3
 from typing import Any
 
-import httpx
-
-from . import config
+from . import llm
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +29,6 @@ SPOT_CHECK_SYSTEM_PROMPT = (
 
 def run_spot_check(
     conn: "sqlite3.Connection",
-    api_key: str | None = None,
-    base_url: str | None = None,
     model: str | None = None,
 ) -> list[dict[str, Any]]:
     """Sample the lowest-scoring entries and rate them via LLM.
@@ -57,45 +53,28 @@ def run_spot_check(
     entries = [dict(r) for r in rows]
     prompt_lines = []
     for i, e in enumerate(entries, 1):
-        content = e['content']
-        ts = e['timestamp']
-        tags = e.get('tags', '[]')
+        content = e["content"]
+        ts = e["timestamp"]
+        tags = e.get("tags", "[]")
         prompt_lines.append(
             f"[{i}] content: {content}\n    ts: {ts}\n    tags: {tags}"
         )
     prompt = "\n\n".join(prompt_lines)
 
-    key = api_key or config.OPENGINE_API_KEY
-    if not key:
-        logger.warning("OPENCODE_GO_API_KEY not set — skipping spot-check")
-        return entries
-
-    url = (base_url or config.OPENGINE_BASE_URL).rstrip("/") + "/chat/completions"
-    resolved_model = model or config.SUMMARIZATION_MODEL
-
-    body = {
-        "model": resolved_model,
-        "messages": [
-            {"role": "system", "content": SPOT_CHECK_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": 512,
-        "temperature": 0.1,
-    }
-
     try:
-        resp = httpx.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-            timeout=30.0,
+        feedback = llm.complete(
+            messages=[{"role": "user", "content": prompt}],
+            system=SPOT_CHECK_SYSTEM_PROMPT,
+            model=model,
+            max_tokens=512,
+            temperature=0.1,
         )
-        resp.raise_for_status()
-        result = resp.json()
-        feedback = result["choices"][0]["message"]["content"]
+    except ValueError as exc:
+        if "API key" in str(exc):
+            logger.warning("LLM provider not configured — skipping spot-check")
+            return entries
+        logger.exception("spot-check LLM call failed")
+        return entries
     except Exception:
         logger.exception("spot-check LLM call failed")
         return entries
@@ -120,7 +99,7 @@ def run_spot_check(
         elif rating == "VALID":
             adjustments[idx] = +0.05
         else:
-            continue  # INSUFFICIENT or unknown — no change
+            continue
 
     # Apply adjustments
     for i, e in enumerate(entries, 1):

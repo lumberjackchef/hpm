@@ -83,8 +83,12 @@ hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENCODE_GO_API_KEY` | Yes | API key for OpenCode Go summarization endpoint |
-| `OPENCODE_GO_BASE_URL` | No | Defaults to `https://opencode.ai/zen/go/v1` |
+| `HPM_LLM_PROVIDER` | No | `opencode` (default), `anthropic`, `openai`, `openrouter` |
+| `OPENCODE_GO_API_KEY` | For opencode | API key for OpenCode Go |
+| `ANTHROPIC_API_KEY` | For anthropic | API key for Anthropic |
+| `OPENAI_API_KEY` | For openai | API key for OpenAI |
+| `OPENROUTER_API_KEY` | For openrouter | API key for OpenRouter |
+| `HPM_LLM_MODEL` | No | Model override (defaults per provider) |
 
 ### Key design decisions (do not change without review)
 

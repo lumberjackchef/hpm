@@ -1,7 +1,7 @@
 """Cited-answer synthesis for Tier 3 recall.
 
 Takes the top reranked memory results and sends them + the user's query to
-the OpenCode Go API for a structured answer with citations.
+the configured LLM provider for a structured answer with citations.
 
 Follows the GBrain pattern: answer concisely, cite sources, or say "I don't know"
 if nothing relevant is found.
@@ -12,9 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import httpx
-
-from . import config
+from . import llm
 
 logger = logging.getLogger(__name__)
 
@@ -42,33 +40,19 @@ def synthesize_answer(
     query: str,
     results: list[dict[str, Any]],
     model: str | None = None,
-    api_key: str | None = None,
-    base_url: str | None = None,
 ) -> str:
     """Synthesize a cited answer from reranked memory results.
 
     Args:
         query: The original user query.
-        results: Reranked memory entries (must have ``id``, ``timestamp``, ``content``).
-        model: OpenCode Go model override.
-        api_key: API key override (defaults to config).
-        base_url: Base URL override (defaults to config).
+        results: Reranked memory entries.
+        model: Optional model override.
 
     Returns:
         A structured answer string with citations, or an "I don't know" response.
     """
     if not results:
         return "I don't know based on available memories."
-
-    key = api_key or config.OPENGINE_API_KEY
-    if not key:
-        raise ValueError(
-            "OPENCODE_GO_API_KEY is not set. "
-            "Set it in your environment or pass it explicitly."
-        )
-
-    url = (base_url or config.OPENGINE_BASE_URL).rstrip("/") + "/chat/completions"
-    resolved_model = model or config.SUMMARIZATION_MODEL
 
     # Format the memory context for the LLM
     memory_context_lines = []
@@ -84,38 +68,13 @@ def synthesize_answer(
 
     memory_context = "\n\n".join(memory_context_lines)
 
-    body = {
-        "model": resolved_model,
-        "messages": [
-            {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"## User Query\n{query}\n\n## Memory Entries\n{memory_context}"
-                ),
-            },
-        ],
-        "max_tokens": 512,
-        "temperature": 0.2,
-    }
+    user_prompt = f"## User Query\n{query}\n\n## Memory Entries\n{memory_context}"
 
-    logger.info(
-        "synthesizing answer for query=%r with %d memory entries",
-        query[:50],
-        len(results),
+    logger.info("synthesizing answer for query=%r with %d entries", query[:50], len(results))
+    return llm.complete(
+        messages=[{"role": "user", "content": user_prompt}],
+        system=ANSWER_SYSTEM_PROMPT,
+        model=model,
+        max_tokens=512,
+        temperature=0.2,
     )
-    resp = httpx.post(
-        url,
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-        },
-        json=body,
-        timeout=30.0,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-
-    answer: str = data["choices"][0]["message"]["content"].strip()
-    logger.info("answer received (%d chars)", len(answer))
-    return answer
