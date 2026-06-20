@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import sys
 
 import click
 
 from . import config, daily, embed, summarize
 from . import db as db_module
-
-logger = logging.getLogger(__name__)
+from . import sidecar as sidecar_module
 
 
 @click.command()
@@ -134,3 +132,12 @@ def save(fact: str, tags: tuple[str, ...], session_id: str | None) -> None:
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)
+
+
+@click.command()
+@click.option("--once", is_flag=True, help="Run one poll cycle and exit")
+@click.option("--poll-interval", default=5.0, show_default=True, help="Seconds between polls")
+def sidecar(once: bool, poll_interval: float) -> None:
+    """Run the Hermes state.db poller for auto-capture."""
+    click.echo("starting sidecar (auto-capture daemon)")
+    sidecar_module.run_sidecar(once=once, poll_interval=poll_interval)

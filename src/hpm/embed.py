@@ -25,7 +25,7 @@ class Embedder:
 
         logger.info("loading embedding model: %s", model_name)
         self._model = SentenceTransformer(model_name, device="cpu")
-        self._dim = int(self._model.get_sentence_embedding_dimension())
+        self._dim = int(self._model.get_embedding_dimension())
         logger.info("embedding model loaded (dim=%d)", self._dim)
 
     @property

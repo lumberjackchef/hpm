@@ -14,6 +14,7 @@ def cli() -> None:
 cli.add_command(cli_module.capture)
 cli.add_command(cli_module.query)
 cli.add_command(cli_module.save)
+cli.add_command(cli_module.sidecar)
 
 
 if __name__ == "__main__":
