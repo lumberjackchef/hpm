@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
-"""MCP stdio server exposing hpm memory tools to Hermes Agent.
+"""MCP stdio server exposing hpm memory tools to Hermes Agent and Claude Code.
 
 Register with Hermes::
 
-    hermes mcp add hpm --command "python3 /path/to/hpm_mcp_server.py"
+    hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py
 
-Then in any Hermes session, the ``memory-find``, ``memory-save``, and
+Or with Claude Code via `.mcp.json` at the repo root::
+
+    {
+      "mcpServers": {
+        "hpm": {
+          "command": "/path/to/python3",
+          "args": ["/path/to/hpm_mcp_server.py"]
+        }
+      }
+    }
+
+Then in any agent session, the ``memory-find``, ``memory-save``, and
 ``memory-capture`` tools are available for the agent to call automatically.
 """
 

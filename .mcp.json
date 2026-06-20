@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "hpm": {
+      "description": "hpm memory system — save, search, and capture conversation memories",
+      "command": "/Users/ryanpearson/code/hpm/.venv/bin/python3",
+      "args": ["/Users/ryanpearson/code/hpm/hpm_mcp_server.py"]
+    }
+  }
+}

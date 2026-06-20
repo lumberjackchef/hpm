@@ -81,7 +81,7 @@ Memory scores decay exponentially (half-life: 1 week) and are reinforced on ever
 | `hpm decay --spot-check` | LLM spot-check low-scoring entries |
 | `hpm dashboard` | Generate and open HTML dashboard in browser |
 
-## MCP Server (Hermes Integration)
+## MCP Server (Hermes + Claude Code)
 
 Register with Hermes for native tool access:
 
@@ -89,7 +89,22 @@ Register with Hermes for native tool access:
 hermes mcp add hpm --command /path/to/python3 --args /path/to/hpm_mcp_server.py
 ```
 
-Exposes `memory-find`, `memory-save`, and `memory-capture` as Hermes tools.
+Or with Claude Code via `.mcp.json` at the repo root (already configured):
+
+```json
+{
+  "mcpServers": {
+    "hpm": {
+      "command": "/path/to/python3",
+      "args": ["/path/to/hpm_mcp_server.py"]
+    }
+  }
+}
+```
+
+Exposes `memory-find`, `memory-save`, and `memory-capture` as tools in both agents.
+
+See [`CLAUDE_CODE_SETUP.md`](CLAUDE_CODE_SETUP.md) for full Claude Code integration details.
 
 ## Environment Variables
 
