@@ -34,11 +34,13 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
     content TEXT NOT NULL,
-    source TEXT NOT NULL DEFAULT 'hermes',
+    source TEXT NOT NULL DEFAULT '["hermes"]',
     session_id TEXT,
     timestamp TEXT NOT NULL,
     tags TEXT NOT NULL DEFAULT '[]',
-    decay_score REAL NOT NULL DEFAULT 1.0
+    decay_score REAL NOT NULL DEFAULT 1.0,
+    superseded_by TEXT,
+    access_scope TEXT NOT NULL DEFAULT 'all'
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
@@ -104,9 +106,10 @@ def _apply_pragmas(conn: "sqlite3.Connection") -> None:
 
 
 def init_db(conn: "sqlite3.Connection") -> None:
-    """Create the schema if it doesn't exist."""
+    """Create the schema if it doesn't exist, and migrate legacy data."""
     conn.executescript(_SCHEMA)
     conn.executescript(_FTS_TRIGGERS)
+    migrate_v1(conn)
     conn.commit()
 
 
@@ -144,28 +147,107 @@ def with_retry(fn: Callable[[], T]) -> T:
     ) from last_exc
 
 
-# ── CRUD ─────────────────────────────────────────────────────────────────
+# ── Dedup & Conflict Resolution ───────────────────────────────────────────
 
-def insert_memory(
+DEDUP_THRESHOLD = 0.85  # cosine similarity threshold for dedup
+
+
+def merge_or_insert(
     conn: "sqlite3.Connection",
     content: str,
     embedding: npt.NDArray[np.float32],
     source: str = "hermes",
     session_id: str | None = None,
     tags: list[str] | None = None,
+    access_scope: str = "all",
 ) -> str:
-    """Insert a memory entry with its embedding vector.
+    """Insert a memory entry with dedup and conflict resolution.
 
-    Returns the UUID ``id`` of the new row.
+    Checks for a near neighbor (cosine > 0.85) before inserting:
+    - No match → insert new entry.
+    - Match found, content is semantically similar → merge (update timestamp,
+      append source to source array, update tags).
+    - Match found, content differs significantly → insert as new entry and
+      mark the old one as ``superseded_by`` the new one.
+
+    Returns the UUID ``id`` of the active entry.
     """
+    # Search for near neighbor
+    near = query_vector(conn, embedding, limit=1)
+    if near and near[0].get("distance", 1.0) < (1.0 - DEDUP_THRESHOLD):
+        return _merge_existing(
+            conn, near[0], content, embedding, source, tags,
+        )
+
+    # No match — normal insert
+    return _insert_new(
+        conn, content, embedding, source, session_id, tags, access_scope,
+    )
+
+
+def _merge_existing(
+    conn: "sqlite3.Connection",
+    existing: dict[str, Any],
+    content: str,
+    embedding: npt.NDArray[np.float32],
+    source: str,
+    tags: list[str] | None,
+) -> str:
+    """Merge new content into an existing near-duplicate entry."""
+    existing_id = existing["id"]
+    existing_sources = _parse_source_array(existing.get("source", "[]"))
+    existing_tags = existing.get("tags", []) or []
+
+    # Combine sources (avoid dupes)
+    if source not in existing_sources:
+        existing_sources.append(source)
+    sources_json = json.dumps(existing_sources)
+
+    # Combine tags
+    combined_tags = list(dict.fromkeys(existing_tags + (tags or [])))
+    tags_json = json.dumps(combined_tags)
+
+    now = _now()
+
+    with_retry(lambda: conn.execute(
+        "UPDATE memories SET source = ?, timestamp = ?, tags = ?, "
+        "content = ?, decay_score = 1.0 WHERE id = ?",
+        (sources_json, now, tags_json, content, existing_id),
+    ))
+
+    # Update vector and FTS5 (triggers handle FTS)
+    rid = conn.execute(
+        "SELECT rowid FROM memories WHERE id = ?", (existing_id,)
+    ).fetchone()["rowid"]
+    vec_bytes = serialize_vector(embedding)
+    with_retry(lambda: conn.execute(
+        "UPDATE memories_vec SET embedding = ? WHERE rowid = ?",
+        (vec_bytes, rid),
+    ))
+
+    conn.commit()
+    return existing_id  # type: ignore[no-any-return]
+
+
+def _insert_new(
+    conn: "sqlite3.Connection",
+    content: str,
+    embedding: npt.NDArray[np.float32],
+    source: str,
+    session_id: str | None,
+    tags: list[str] | None,
+    access_scope: str,
+) -> str:
+    """Insert a brand-new memory entry."""
     mem_id = str(uuid.uuid4())
     ts = _now()
+    sources_json = json.dumps([source])
     tags_json = json.dumps(tags or [])
 
     with_retry(lambda: conn.execute(
-        "INSERT INTO memories (id, content, source, session_id, timestamp, tags) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (mem_id, content, source, session_id, ts, tags_json),
+        "INSERT INTO memories (id, content, source, session_id, timestamp, tags, access_scope) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (mem_id, content, sources_json, session_id, ts, tags_json, access_scope),
     ))
 
     rowid = conn.execute("SELECT rowid FROM memories WHERE id = ?", (mem_id,)).fetchone()["rowid"]
@@ -178,6 +260,46 @@ def insert_memory(
 
     conn.commit()
     return mem_id
+
+
+def _parse_source_array(source_val: str | list[str]) -> list[str]:
+    """Parse the source field, which may be a JSON array string or a plain string."""
+    if isinstance(source_val, list):
+        return source_val
+    try:
+        parsed = json.loads(source_val)
+        return parsed if isinstance(parsed, list) else [source_val]
+    except (json.JSONDecodeError, TypeError):
+        # Legacy: single-source string
+        return [source_val] if source_val else []
+
+
+# ── Legacy compatibility ──────────────────────────────────────────────────
+
+
+def insert_memory(
+    conn: "sqlite3.Connection",
+    content: str,
+    embedding: npt.NDArray[np.float32],
+    source: str = "hermes",
+    session_id: str | None = None,
+    tags: list[str] | None = None,
+) -> str:
+    """Insert a memory entry, deduping if a near neighbor exists.
+
+    This is the primary entry point for captures. Delegates to
+    ``merge_or_insert`` for dedup and conflict resolution.
+
+    Returns the UUID ``id`` of the (possibly merged) entry.
+    """
+    return merge_or_insert(
+        conn=conn,
+        content=content,
+        embedding=embedding,
+        source=source,
+        session_id=session_id,
+        tags=tags,
+    )
 
 
 def query_vector(
@@ -309,6 +431,9 @@ def _row_to_dict(row: "sqlite3.Row") -> dict[str, Any]:
     # Parse tags from JSON
     if isinstance(d.get("tags"), str):
         d["tags"] = json.loads(d["tags"])
+    # Parse source from JSON array (or legacy single string)
+    if "source" in d:
+        d["source"] = _parse_source_array(d["source"])
     return d
 
 
@@ -323,3 +448,48 @@ def _to_fts5_query(user_query: str) -> str:
         return ""
     # Use AND between terms for precision
     return " AND ".join(f"\"{t}\"" for t in terms if t)
+
+
+# ── Migration ────────────────────────────────────────────────────────────
+
+
+def migrate_v1(conn: "sqlite3.Connection") -> None:
+    """Migrate legacy entries (v1 schema) to the new schema (v2).
+
+    v1 had ``source`` as a plain string. v2 stores it as a JSON array.
+    Also adds ``superseded_by`` and ``access_scope`` columns if missing.
+    """
+    # Add new columns if they don't exist (safe for ALTER TABLE)
+    for col, col_type in [("superseded_by", "TEXT"), ("access_scope", "TEXT DEFAULT 'all'")]:
+        try:
+            conn.execute(f"ALTER TABLE memories ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+    # Migrate legacy source values from plain string to JSON array
+    rows = conn.execute(
+        "SELECT rowid, source FROM memories WHERE source NOT LIKE '[%' AND source IS NOT NULL"
+    ).fetchall()
+    for row in rows:
+        new_source = json.dumps([row["source"]])
+        conn.execute("UPDATE memories SET source = ? WHERE rowid = ?", (new_source, row["rowid"]))
+
+    if rows:
+        conn.commit()
+
+
+def get_superseded_entries(
+    conn: "sqlite3.Connection",
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Fetch entries that have been superseded by newer ones.
+
+    Returns entries where ``superseded_by`` is not null, ordered by timestamp
+    descending.
+    """
+    rows = conn.execute(
+        "SELECT m.* FROM memories m WHERE m.superseded_by IS NOT NULL "
+        "ORDER BY m.timestamp DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [_row_to_dict(r) for r in rows]
