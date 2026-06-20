@@ -113,12 +113,8 @@ def generate(conn: "sqlite3.Connection", output_path: str = DASHBOARD_PATH) -> s
 
 <div class="stats">
   <div class="stat-card">
-    <div class="value">{stats['active']}</div>
-    <div class="label">Active Entries</div>
-  </div>
-  <div class="stat-card">
     <div class="value">{stats['total']}</div>
-    <div class="label">Total</div>
+    <div class="label">Total Entries</div>
   </div>
   <div class="stat-card">
     <div class="value">{stats['entries_below_eviction']}</div>
