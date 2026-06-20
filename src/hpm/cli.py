@@ -6,7 +6,8 @@ import sys
 
 import click
 
-from . import config, daily, embed, summarize
+from . import answer as answer_module
+from . import config, daily, embed, rerank, summarize
 from . import db as db_module
 from . import sidecar as sidecar_module
 
@@ -141,3 +142,38 @@ def sidecar(once: bool, poll_interval: float) -> None:
     """Run the Hermes state.db poller for auto-capture."""
     click.echo("starting sidecar (auto-capture daemon)")
     sidecar_module.run_sidecar(once=once, poll_interval=poll_interval)
+
+
+@click.command()
+@click.argument("query")
+@click.option("--limit", "-l", default=5, show_default=True, help="Max results")
+@click.option("--no-rerank", is_flag=True, help="Skip the cross-encoder reranker pass")
+def answer(query: str, limit: int, no_rerank: bool) -> None:
+    """Full recall pipeline: hybrid search → reranker → cited answer."""
+    try:
+        conn = db_module.get_connection()
+        db_module.init_db(conn)
+
+        # Tier 1: hybrid search
+        click.echo("searching...", err=True)
+        query_vec = embed.embed_text(query)
+        results = db_module.query_hybrid(conn, query, query_vec, limit=rerank.RERANK_CANDIDATES)
+
+        if not results:
+            click.echo("I don't know based on available memories.")
+            return
+
+        # Tier 2: reranker
+        if not no_rerank:
+            click.echo("reranking...", err=True)
+            results = rerank.rerank(query, results, keep=limit)
+            rerank.unload()
+
+        # Tier 3: cited-answer synthesis
+        click.echo("synthesizing answer...", err=True)
+        cited = answer_module.synthesize_answer(query, results)
+        click.echo("")
+        click.echo(cited)
+    except Exception as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)

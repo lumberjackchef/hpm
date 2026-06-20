@@ -154,3 +154,51 @@ def test_default_db_path():
         import shutil
 
         shutil.rmtree("/tmp/test-hpm", ignore_errors=True)
+
+
+def test_hybrid_search_returns_results(conn):
+    """Hybrid search returns deduplicated results from both vector and keyword."""
+    db.insert_memory(
+        conn,
+        content="Discussed Japanese market entry with Paddle",
+        embedding=np.array([0.1] * 384, dtype=np.float32),
+        tags=["project:jarvis"],
+    )
+    db.insert_memory(
+        conn,
+        content="Uncle Red's nursery planting schedule for spring",
+        embedding=np.array([0.2] * 384, dtype=np.float32),
+        tags=["project:nursery"],
+    )
+
+    query_vec = np.array([0.15] * 384, dtype=np.float32)
+    results = db.query_hybrid(conn, "Japanese Paddle", query_vec, limit=5)
+
+    assert len(results) >= 1
+    contents = [r["content"] for r in results]
+    assert any("Japanese" in c for c in contents)
+
+
+def test_hybrid_search_vector_weight(conn):
+    """Vector weight=0 gives keyword-only, weight=1 gives vector-only."""
+    db.insert_memory(
+        conn,
+        content="Python programming language guide",
+        embedding=np.array([0.9] * 384, dtype=np.float32),
+    )
+    db.insert_memory(
+        conn,
+        content="Snake species identification",
+        embedding=np.array([0.1] * 384, dtype=np.float32),
+    )
+
+    query_vec = np.array([0.85] * 384, dtype=np.float32)
+
+    # Keyword search: "Python" matches both "Python programming" and not "Snake"
+    kw_results = db.query_hybrid(conn, "Python", query_vec, limit=5, vector_weight=0.0)
+    kw_contents = [r["content"] for r in kw_results]
+    assert any("Python" in c for c in kw_contents)
+
+    # Vector search: [0.85] is closer to [0.9] than [0.1]
+    vec_results = db.query_hybrid(conn, "Python", query_vec, limit=5, vector_weight=1.0)
+    assert "Python" in vec_results[0]["content"]
