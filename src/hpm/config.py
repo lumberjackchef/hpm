@@ -36,6 +36,42 @@ _load_dotenv(_HPM_ENV_FILE)
 # Also check ~/.hermes/.env for backward compatibility (legacy location)
 _load_dotenv(Path.home() / ".hermes" / ".env")
 
+# ── Auto-create ~/.hpm/ directory and .env template ─────────────────────
+# On first install, create the config directory and a commented-out
+# template so users know what env vars are available.
+
+_HPM_ENV_STUB = """# hpm configuration
+# Uncomment and set the variables you need.
+# This file is loaded automatically by hpm on every command.
+#
+# LLM provider: opencode (default), anthropic, openai, openrouter
+#HPM_LLM_PROVIDER=opencode
+#
+# Provider-specific API keys (set the one matching your provider):
+#OPENCODE_GO_API_KEY=
+#ANTHROPIC_API_KEY=
+#OPENAI_API_KEY=
+#OPENROUTER_API_KEY=
+#
+# Model override (defaults per provider):
+#HPM_LLM_MODEL=
+#
+# Database path (default: ~/.hpm/memories.db):
+#HPM_DB_PATH=
+"""
+
+
+def _ensure_hpm_dir() -> None:
+    """Create ``~/.hpm/`` and a commented ``.env`` template if they don't exist."""
+    if _HPM_ENV_DIR.exists():
+        return
+    _HPM_ENV_DIR.mkdir(parents=True, exist_ok=True)
+    if not _HPM_ENV_FILE.exists():
+        _HPM_ENV_FILE.write_text(_HPM_ENV_STUB.strip() + "\n")
+
+
+_ensure_hpm_dir()
+
 # ── Data directory ───────────────────────────────────────────────────────
 # The canonical location is ~/.hpm/, but ~/.hermes/memories/ is checked as
 # a fallback for users with existing data from before the migration.
