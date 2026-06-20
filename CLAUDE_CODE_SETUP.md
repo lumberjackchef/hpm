@@ -125,7 +125,7 @@ Claude Code session
   → memory-find / memory-save / memory-capture (via MCP)
   → hpm_mcp_server.py (stdio subprocess)
   → hpm Python library
-    → sqlite-vec vector store (~/.hermes/memories/memories.db)
+    → sqlite-vec vector store (~/.hpm/memories.db)
     → BGE-small embedding (fastembed/ONNX, ~3ms)
     → Configured LLM provider (HPM_LLM_PROVIDER) for summarization and answer synthesis
 ```

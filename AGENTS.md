@@ -43,10 +43,10 @@ entirely on-device with sqlite-vec.
 3. **Immediate embedding** — Every captured turn is vector-embedded immediately (~20ms with BGE-small). No batch deferral. Memories must be queryable within seconds of capture.
 4. **Shared CLI bridge** — Both Hermes and Pi communicate with the vector store through the `hpm` CLI. No agent-specific code in the storage layer.
 5. **sqite-vec with WAL mode** — `PRAGMA journal_mode=WAL;`, `PRAGMA busy_timeout=5000;`, write retry with exponential backoff (3 attempts, 50ms base). Required from day one for concurrent access (Hermes sidecar, Pi extension, cron evaluator).
-6. **Local embeddings** — BGE-small-en-v1.5 (384d) via `sentence-transformers`. On-device CPU, zero API cost.
-7. **Cross-encoder reranker** — `cross-encoder/ms-marco-MiniLM-L-6-v2` for Tier 2. Loaded transiently on query (~200 MB spike, unloads after).
-8. **Summarization via OpenCode Go** — `POST https://opencode.ai/zen/go/v1/chat/completions` with `OPENCODE_GO_API_KEY`. Configurable model (recommended: `minimax-m2.5` for speed/cost, `deepseek-v4-flash` for quality).
-9. **Daily log as audit trail** — Captures also append to `~/.hermes/memories/daily/YYYY-MM-DD.md` as a plain-text backup, but the vector store is the primary recall source.
+6. **Local embeddings** — BGE-small-en-v1.5 (384d) via fastembed (ONNX). On-device CPU, zero API cost, ~3ms per embedding.
+7. **Cross-encoder reranker** — `cross-encoder/ms-marco-MiniLM-L-6-v2` for Tier 2. Loaded transiently on query (~200 MB spike, unloads after). Requires `sentence-transformers` (optional dep: `pip install hpm[reranker]`).
+8. **Summarization via configured LLM provider** — Set by `HPM_LLM_PROVIDER` env var. Supports OpenCode Go, Anthropic, OpenAI, and OpenRouter. No hardcoded endpoints.
+9. **Daily log as audit trail** — Captures also append to `~/.hpm/daily/YYYY-MM-DD.md` as a plain-text backup, but the vector store is the primary recall source.
 10. **Structured answer with citations** — Recall returns a written answer citing specific source files and timestamps. If nothing relevant is found, says so explicitly (GBrain pattern).
 
 ### Data model
@@ -56,7 +56,7 @@ entirely on-device with sqlite-vec.
 | `id` | `text` | UUID v4 |
 | `content` | `text` | Summarized memory entry (2-4 bullets) |
 | `embedding` | `vector(384)` | BGE-small embedding |
-| `source` | `text` | `hermes` or `pi` |
+| `source` | `text` | JSON array of sources, e.g. `["hermes"]` or `["hermes","pi"]` |
 | `session_id` | `text` | Source session ID |
 | `timestamp` | `datetime` | When captured |
 | `tags` | `text[]` | Auto-tagged: project, topic, client |
@@ -86,10 +86,19 @@ hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py
 |----------|----------|-------------|
 | `HPM_LLM_PROVIDER` | No | `opencode` (default), `anthropic`, `openai`, `openrouter` |
 | `OPENCODE_GO_API_KEY` | For opencode | API key for OpenCode Go |
+| `OPENCODE_GO_BASE_URL` | No | Defaults to `https://opencode.ai/zen/go/v1` |
 | `ANTHROPIC_API_KEY` | For anthropic | API key for Anthropic |
+| `ANTHROPIC_BASE_URL` | No | Defaults to `https://api.anthropic.com/v1` |
 | `OPENAI_API_KEY` | For openai | API key for OpenAI |
+| `OPENAI_BASE_URL` | No | Defaults to `https://api.openai.com/v1` |
 | `OPENROUTER_API_KEY` | For openrouter | API key for OpenRouter |
+| `OPENROUTER_BASE_URL` | No | Defaults to `https://openrouter.ai/api/v1` |
 | `HPM_LLM_MODEL` | No | Model override (defaults per provider) |
+| `HPM_ANSWER_MODEL` | No | Separate model for cited-answer synthesis |
+| `HPM_EMBEDDING_MODEL` | No | Defaults to `BAAI/bge-small-en-v1.5` |
+| `HPM_EMBEDDING_DIM` | No | Defaults to `384` |
+| `HPM_DB_PATH` | No | Defaults to `~/.hpm/memories.db` |
+| `HPM_DAILY_LOG` | No | Defaults to `~/.hpm/daily/` |
 
 ### Key design decisions (do not change without review)
 
@@ -145,5 +154,5 @@ _No child AGENTS.md files exist yet. Created as the project grows (likely `src/h
 - **Chunked plans with verification** between each chunk
 - **Concise terminal-friendly responses** — plain text, not markdown, for delivery
 - **Styled HTML for plans/docs** — dual human+agent readability with embedded CSS and JSON metadata block
-- **OpenCode Go provider** for all LLM calls (summarization, spot-checks, cited-answer synthesis) — no separate API keys
+- **Multi-provider LLM support** — all LLM calls (summarization, spot-checks, cited-answer synthesis) go through the configured provider set by `HPM_LLM_PROVIDER`
 - **Single-user local only** — no PostgreSQL, no team sharing, no RLS

@@ -14,7 +14,7 @@ hpm setup
 # Save a fact
 hpm save "The sky is blue" --tags topic:weather
 
-# Capture a conversation turn (requires OPENCODE_GO_API_KEY)
+# Capture a conversation turn (requires an LLM provider)
 hpm capture "User: what's the capital of France? Assistant: Paris" --tags topic:geography
 
 # Query memory
@@ -43,10 +43,10 @@ hpm decay --run && hpm decay --spot-check
 
 ```
 Conversation turn
-  → OpenCode Go API (summarize to 2-4 bullets)
-  → BGE-small (local embedding, ~20ms)
+  → Configured LLM provider (summarize to 2-4 bullets)
+  → BGE-small (local embedding, ~3ms with fastembed)
   → sqlite-vec vector store
-  → ~/.hermes/memories/daily/YYYY-MM-DD.md (plain-text backup)
+  → ~/.hpm/daily/YYYY-MM-DD.md (plain-text backup)
 ```
 
 ### Recall Pipeline (Tier 1 → 2 → 3)
@@ -55,7 +55,7 @@ Conversation turn
 User query
   → Tier 1: Hybrid search (vector cosine + BM25 keyword)
   → Tier 2: Cross-encoder reranker (transient load, ~200MB)
-  → Tier 3: Cited-answer synthesis via OpenCode Go
+  → Tier 3: Cited-answer synthesis via configured LLM provider
 ```
 
 ### Auto-Capture (Sidecar)
@@ -114,11 +114,21 @@ See [`CLAUDE_CODE_SETUP.md`](CLAUDE_CODE_SETUP.md) for full Claude Code integrat
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCODE_GO_API_KEY` | — | **Required** for summarization and answer synthesis |
-| `OPENCODE_GO_BASE_URL` | `https://opencode.ai/zen/go/v1` | API base URL |
-| `HPM_SUMMARIZATION_MODEL` | `minimax-m2.5` | Model for summarization |
-| `HPM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Model for embeddings |
-| `HPM_DB_PATH` | `~/.hermes/memories/memories.db` | Vector database path |
+| `HPM_LLM_PROVIDER` | `opencode` | LLM provider: `opencode`, `anthropic`, `openai`, `openrouter` |
+| `OPENCODE_GO_API_KEY` | — | API key for OpenCode Go (when provider is `opencode`) |
+| `OPENCODE_GO_BASE_URL` | `https://opencode.ai/zen/go/v1` | OpenCode Go API base URL |
+| `ANTHROPIC_API_KEY` | — | API key for Anthropic (when provider is `anthropic`) |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` | Anthropic API base URL |
+| `OPENAI_API_KEY` | — | API key for OpenAI (when provider is `openai`) |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL |
+| `OPENROUTER_API_KEY` | — | API key for OpenRouter (when provider is `openrouter`) |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter API base URL |
+| `HPM_LLM_MODEL` | Provider default | Override the model for summarization and answer synthesis |
+| `HPM_ANSWER_MODEL` | Same as `HPM_LLM_MODEL` | Separate model override for cited-answer synthesis only |
+| `HPM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Sentence embedding model |
+| `HPM_EMBEDDING_DIM` | `384` | Embedding dimension (must match model) |
+| `HPM_DB_PATH` | `~/.hpm/memories.db` | Vector database path |
+| `HPM_DAILY_LOG` | `~/.hpm/daily/` | Daily log directory path |
 
 ## Project Structure
 
@@ -132,12 +142,13 @@ src/hpm/
   dashboard.py    Self-contained HTML dashboard generator
   db.py           sqlite-vec schema, WAL mode, dedup, decay, queries
   decay.py        Decay evaluator and LLM spot-check
-  embed.py        BGE-small embedding (lazy-loaded singleton)
+  embed.py        BGE-small embedding via fastembed (ONNX)
+  llm.py          Multi-provider LLM client abstraction
   rerank.py       Cross-encoder reranker (Tier 2, transient load)
   sidecar.py      Hermes state.db poller daemon
-  summarize.py    OpenCode Go API client
-hpm_mcp_server.py  MCP server for Hermes agent integration
-tests/            pytest suite (46 tests)
+  summarize.py    Conversation turn summarization
+hpm_mcp_server.py  MCP server for AI agent integration
+tests/            pytest suite (48 tests)
 ```
 
 ## Development
@@ -153,7 +164,7 @@ make test      # pytest
 
 1. **Three memory jobs** — Storage, Injection, Recall. Separate concerns.
 2. **Immediate embedding** — Every turn embedded on capture (~20ms). No batch deferral.
-3. **Shared CLI bridge** — Both Hermes and Pi communicate through the `hpm` CLI.
+3. **Shared CLI bridge** — Any AI agent communicates with the vector store through the `hpm` CLI.
 4. **sqlite-vec with WAL** — WAL mode, busy_timeout=5000, exponential-backoff retry.
 5. **Local embeddings** — Zero API cost, on-device CPU.
 6. **Daily log as backup** — Not the recall source.
