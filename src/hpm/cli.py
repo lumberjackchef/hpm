@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import webbrowser
 
 import click
 
@@ -256,6 +257,7 @@ def dashboard(output: str) -> None:
         path = dashboard_module.generate(conn, output_path=output)
         conn.close()
         click.echo(f"Dashboard: {path}")
+        webbrowser.open(f"file://{path}")
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)
