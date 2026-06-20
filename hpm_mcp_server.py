@@ -38,7 +38,7 @@ from hpm import (  # noqa: E402, I001
     config,
     daily,
     db as db_module,
-    rerank,
+    embed,  # lazy — fastembed is heavy, only imported when first handler runs
     summarize,
 )
 
@@ -131,11 +131,9 @@ TOOL_DEFINITIONS = [
 ]
 
 
-from hpm import embed
-
-
 def handle_memory_find(query: str, limit: int = 5) -> str:
     """Full recall pipeline: hybrid → reranker → cited answer."""
+    from hpm import rerank  # lazy: sentence-transformers is heavy
     conn = db_module.get_connection()
     try:
         db_module.init_db(conn)
@@ -200,9 +198,6 @@ TOOL_HANDLERS = {
 
 def main() -> None:
     """Read JSON-RPC requests from stdin, dispatch, write responses to stdout."""
-    # Send initialized notification
-    send_notification("initialized", {})
-
     for line in sys.stdin:
         line = line.strip()
         if not line:

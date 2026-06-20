@@ -22,8 +22,6 @@ from . import config
 
 T = TypeVar("T")
 
-_HERMES_MEMORIES_DIR = Path.home() / ".hermes" / "memories"
-_DEFAULT_DB_PATH = _HERMES_MEMORIES_DIR / "memories.db"
 
 # WAL + busy timeout from the immutable architecture (req #5)
 _PRAGMAS = """
@@ -137,7 +135,7 @@ def init_db(conn: "sqlite3.Connection") -> None:
 
 def serialize_vector(vec: npt.NDArray[np.float32]) -> bytes:
     """Pack a numpy float32 array into the binary format sqlite-vec expects."""
-    return bytes(sqlite_vec.serialize_float32(vec))
+    return sqlite_vec.serialize_float32(vec)  # type: ignore[no-any-return]
 
 
 # ── Write retry ──────────────────────────────────────────────────────────
@@ -199,6 +197,7 @@ def merge_or_insert(
     if near and near[0].get("distance", 1.0) < (1.0 - DEDUP_THRESHOLD):
         return _merge_existing(
             conn, near[0], content, embedding, source, tags,
+            session_id=session_id, access_scope=access_scope,
         )
 
     # No match — normal insert
@@ -214,6 +213,8 @@ def _merge_existing(
     embedding: npt.NDArray[np.float32],
     source: str,
     tags: list[str] | None,
+    session_id: str | None = None,
+    access_scope: str | None = None,
 ) -> str:
     """Merge new content into an existing near-duplicate entry."""
     existing_id = existing["id"]
@@ -233,8 +234,9 @@ def _merge_existing(
 
     with_retry(lambda: conn.execute(
         "UPDATE memories SET source = ?, timestamp = ?, tags = ?, "
-        "content = ?, decay_score = 1.0 WHERE id = ?",
-        (sources_json, now, tags_json, content, existing_id),
+        "content = ?, decay_score = 1.0, session_id = COALESCE(?, session_id) "
+        "WHERE id = ?",
+        (sources_json, now, tags_json, content, session_id, existing_id),
     ))
 
     # Update vector and FTS5 (triggers handle FTS)
@@ -247,7 +249,7 @@ def _merge_existing(
         (vec_bytes, rid),
     ))
 
-    conn.commit()
+    with_retry(lambda: conn.commit())
     return existing_id  # type: ignore[no-any-return]
 
 
@@ -267,9 +269,10 @@ def _insert_new(
     tags_json = json.dumps(tags or [])
 
     with_retry(lambda: conn.execute(
-        "INSERT INTO memories (id, content, source, session_id, timestamp, tags, access_scope) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (mem_id, content, sources_json, session_id, ts, tags_json, access_scope),
+        "INSERT INTO memories (id, content, source, session_id, timestamp, tags, "
+        "access_scope, last_accessed) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (mem_id, content, sources_json, session_id, ts, tags_json, access_scope, ts),
     ))
 
     rowid = conn.execute("SELECT rowid FROM memories WHERE id = ?", (mem_id,)).fetchone()["rowid"]
@@ -280,7 +283,7 @@ def _insert_new(
         (rowid, vec_bytes),
     ))
 
-    conn.commit()
+    with_retry(lambda: conn.commit())
     return mem_id
 
 
@@ -342,7 +345,11 @@ def query_vector(
         (vec_bytes, limit),
     ).fetchall())
 
-    return [_row_to_dict(r) for r in rows]
+    results = [_row_to_dict(r) for r in rows]
+    for r in results:
+        reinforce(conn, r["id"])
+    conn.commit()
+    return results
 
 
 def query_keyword(
@@ -356,6 +363,8 @@ def query_keyword(
     """
     # FTS5 query syntax: escape double-quotes, wrap phrases
     fts_query = _to_fts5_query(query)
+    if not fts_query:
+        return []
     rows = with_retry(lambda: conn.execute(
         "SELECT m.rowid, m.*, fts.rank FROM memories_fts fts "
         "JOIN memories m ON m.rowid = fts.rowid "
@@ -365,7 +374,11 @@ def query_keyword(
         (fts_query, limit),
     ).fetchall())
 
-    return [_row_to_dict(r) for r in rows]
+    results = [_row_to_dict(r) for r in rows]
+    for r in results:
+        reinforce(conn, r["id"])
+    conn.commit()
+    return results
 
 
 def query_hybrid(
@@ -462,14 +475,24 @@ def _row_to_dict(row: "sqlite3.Row") -> dict[str, Any]:
 def _to_fts5_query(user_query: str) -> str:
     """Convert a plain-text query to a minimal FTS5-safe form.
 
-    Handles simple phrases and escapes problematic characters.
+    Strips FTS5 special characters and escapes double-quotes, then wraps
+    each term in quotes for AND-based matching.
     """
-    # Wrap each word as a prefix term for partial matching
-    terms = user_query.strip().split()
+    import re
+    # Strip FTS5 control characters: () * ^ : + -
+    cleaned = re.sub(r"[()*^:+\-]", " ", user_query)
+    # Remove keyword operators and escape embedded quotes
+    terms = []
+    for t in cleaned.strip().split():
+        t_upper = t.upper()
+        if t_upper in ("NOT", "OR", "AND", "NEAR"):
+            continue
+        t = t.replace('"', '""')
+        if t:
+            terms.append(t)
     if not terms:
         return ""
-    # Use AND between terms for precision
-    return " AND ".join(f"\"{t}\"" for t in terms if t)
+    return " AND ".join(f'"{t}"' for t in terms)
 
 
 # ── Migration ────────────────────────────────────────────────────────────
@@ -538,7 +561,7 @@ def reinforce(conn: "sqlite3.Connection", mem_id: str) -> None:
         "UPDATE memories SET decay_score = 1.0, last_accessed = ? WHERE id = ?",
         (now, mem_id),
     ))
-    conn.commit()
+    with_retry(lambda: conn.commit())
 
 
 def compute_decay_score(
@@ -590,7 +613,7 @@ def run_decay(
             )
             updated += 1
     if updated:
-        conn.commit()
+        with_retry(lambda: conn.commit())
     return updated
 
 

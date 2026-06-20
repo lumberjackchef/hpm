@@ -34,15 +34,14 @@ class Embedder:
 
         logger.info("loading embedding model: %s", model_name)
         self._model = TextEmbedding(model_name)
-        # Get dimension by embedding a short string
-        sample = next(self._model.embed(""))  # type: ignore[call-overload]
-        self._dim = len(sample)
+        # Sample a short string to get the vector dimension
+        sample: np.ndarray = next(self._model.embed(""))  # type: ignore[call-overload]
+        self._dim: int = len(sample)
         logger.info("embedding model loaded (dim=%d)", self._dim)
 
     @property
     def dim(self) -> int:
         return self._dim
-
     def embed(self, text: str) -> npt.NDArray[np.float32]:
         """Compute a single embedding vector for *text*.
 

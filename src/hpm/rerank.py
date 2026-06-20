@@ -9,8 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sentence_transformers import CrossEncoder
-
 logger = logging.getLogger(__name__)
 
 # Default model — lightweight cross-encoder, good balance of speed/quality
@@ -23,11 +21,13 @@ RERANK_CANDIDATES = 10
 RERANK_KEEP = 5
 
 # Singleton management
-_reranker: CrossEncoder | None = None
+_reranker: Any | None = None
 
 
-def _get_reranker() -> CrossEncoder:
+def _get_reranker() -> Any:
     """Load the cross-encoder model (lazy, transient)."""
+    from sentence_transformers import CrossEncoder
+
     global _reranker
     if _reranker is None:
         logger.info("loading reranker model: %s", RERANKER_MODEL)
@@ -64,7 +64,7 @@ def rerank(
 
     model = _get_reranker()
     pairs: list[tuple[str, str]] = [(query, str(c["content"])) for c in candidates]
-    scores = model.predict(pairs, show_progress_bar=False)  # type: ignore[arg-type]
+    scores = model.predict(pairs, show_progress_bar=False)
 
     for i, c in enumerate(candidates):
         c["rerank_score"] = float(scores[i])

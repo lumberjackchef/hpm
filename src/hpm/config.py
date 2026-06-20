@@ -109,6 +109,9 @@ def write_env(**kwargs: str) -> Path:
         for line in merged.values():
             f.write(line + "\n")
 
+    # Restrict permissions so only the owner can read the file (contains API keys)
+    _HPM_ENV_FILE.chmod(0o600)
+
     return _HPM_ENV_FILE
 
 

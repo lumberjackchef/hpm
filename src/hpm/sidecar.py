@@ -60,25 +60,33 @@ def get_latest_messages(
     conn: sqlite3.Connection,
     cursor: dict[str, int],
 ) -> list[dict[str, Any]]:
-    """Fetch new user+assistant message pairs since the last cursor position.
+    """Fetch new user+assistant message pairs per-session since the last cursor.
 
-    Returns messages ordered by session, then by timestamp.
-    Only returns messages where the session has an active assistant response.
+    Tracks cursor per-session so fast sessions don't skip messages from
+    slower sessions. Returns messages ordered by session, then by timestamp.
     """
-    last_id = max(cursor.values()) if cursor else 0
-    rows = conn.execute(
-        """SELECT m.id, m.session_id, m.role, m.content, m.timestamp,
-                  s.title as session_title
-           FROM messages m
-           JOIN sessions s ON s.id = m.session_id
-           WHERE m.id > ?
-             AND m.role IN ('user', 'assistant')
-             AND m.active = 1
-           ORDER BY m.session_id, m.timestamp""",
-        (last_id,),
+    all_results: list[dict[str, Any]] = []
+    sessions = conn.execute(
+        "SELECT id, title FROM sessions WHERE active = 1"
     ).fetchall()
 
-    return [dict(r) for r in rows]
+    for sess in sessions:
+        sid = sess["id"]
+        last_id = cursor.get(sid, 0)
+        rows = conn.execute(
+            """SELECT m.id, m.session_id, m.role, m.content, m.timestamp,
+                      ? as session_title
+               FROM messages m
+               WHERE m.session_id = ?
+                 AND m.id > ?
+                 AND m.role IN ('user', 'assistant')
+                 AND m.active = 1
+               ORDER BY m.timestamp""",
+            (sess["title"], sid, last_id),
+        ).fetchall()
+        all_results.extend(dict(r) for r in rows)
+
+    return all_results
 
 
 def build_turns(
@@ -187,10 +195,18 @@ def run_sidecar(
         once: If True, poll once and exit (useful for testing).
         poll_interval: Seconds between polls.
     """
-    if not config.OPENGINE_API_KEY:
+    provider_keys = {
+        "opencode": config.OPENGINE_API_KEY,
+        "anthropic": config.ANTHROPIC_API_KEY,
+        "openai": config.OPENAI_API_KEY,
+        "openrouter": config.OPENROUTER_API_KEY,
+    }
+    active_key = provider_keys.get(config.LLM_PROVIDER, config.OPENGINE_API_KEY)
+    if not active_key:
         logger.warning(
-            "OPENCODE_GO_API_KEY not set — summarization will fail. "
-            "Set it in your environment before starting the sidecar."
+            "No API key configured for provider %r"
+            " — summarization will fail.",
+            config.LLM_PROVIDER,
         )
 
     cursor = _load_cursor()
@@ -234,9 +250,12 @@ def _poll_once(cursor: dict[str, int]) -> None:
         finally:
             hpm_conn.close()
 
-        # Update cursor to the highest message ID seen
-        max_id = max(m["id"] for m in messages)
-        cursor["_global"] = max_id
+        # Update per-session cursor positions
+        for m in messages:
+            sid = m["session_id"]
+            mid = m["id"]
+            if cursor.get(sid, 0) < mid:
+                cursor[sid] = mid
         _save_cursor(cursor)
     finally:
         state_conn.close()

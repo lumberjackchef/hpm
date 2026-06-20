@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import webbrowser
+from typing import Any
 
 import click
 
@@ -73,15 +74,18 @@ def query(query: str, limit: int, tags: tuple[str, ...], mode: str) -> None:
         conn = db_module.get_connection()
         db_module.init_db(conn)
 
-        results = []
+        results: list[dict[str, Any]] = []
 
-        if mode in ("vector", "hybrid"):
+        if mode == "vector":
             click.echo("embedding query...", err=True)
             query_vec = embed.embed_text(query)
             results = db_module.query_vector(conn, query_vec, limit=limit)
-
-        if mode in ("keyword", "hybrid") and not results:
+        elif mode == "keyword":
             results = db_module.query_keyword(conn, query, limit=limit)
+        elif mode == "hybrid":
+            click.echo("embedding query...", err=True)
+            query_vec = embed.embed_text(query)
+            results = db_module.query_hybrid(conn, query, query_vec, limit=limit)
 
         # Apply tag filter client-side for now
         if tags:
@@ -95,7 +99,16 @@ def query(query: str, limit: int, tags: tuple[str, ...], mode: str) -> None:
             return
 
         for i, row in enumerate(results, 1):
-            score = row.get("distance", row.get("rank", 0))
+            raw = row.get("distance", row.get("rank", None))
+            if raw is not None:
+                if "distance" in row and raw > 0:
+                    score = 1.0 - raw  # normalize distance to [0,1]
+                elif raw < 0:
+                    score = 1.0 + raw  # normalize negative rank to [0,1]
+                else:
+                    score = raw
+            else:
+                score = row.get("_combined", 0)
             click.echo(f"\n[{i}] (score: {score:.4f})")
             click.echo(f"    {row['content']}")
             src = row['source']

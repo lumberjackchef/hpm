@@ -95,7 +95,12 @@ def complete(
             f"Set the corresponding environment variable."
         )
 
-    resolved_model = model or config.SUMMARIZATION_MODEL or cfg["default_model"]
+    resolved_model = (
+        model
+        or config.SUMMARIZATION_MODEL
+        or config.ANSWER_MODEL
+        or cfg["default_model"]
+    )
 
     if cfg["api_type"] == "anthropic":
         return _call_anthropic(
