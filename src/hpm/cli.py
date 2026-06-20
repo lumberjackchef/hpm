@@ -8,7 +8,9 @@ import click
 
 from . import answer as answer_module
 from . import config, daily, embed, rerank, summarize
+from . import dashboard as dashboard_module
 from . import db as db_module
+from . import decay as decay_module
 from . import sidecar as sidecar_module
 
 
@@ -176,6 +178,84 @@ def answer(query: str, limit: int, no_rerank: bool) -> None:
         cited = answer_module.synthesize_answer(query, results)
         click.echo("")
         click.echo(cited)
+    except Exception as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+
+
+@click.command()
+@click.option("--run", "do_run", is_flag=True, help="Run decay computation")
+@click.option("--spot-check", is_flag=True, help="LLM spot-check on lowest-scoring entries")
+def decay(do_run: bool, spot_check: bool) -> None:
+    """Run memory decay evaluator and spot-check."""
+    try:
+        conn = db_module.get_connection()
+        db_module.init_db(conn)
+
+        if do_run:
+            click.echo("computing decay scores...", err=True)
+            updated = db_module.run_decay(conn)
+            click.echo(f"updated {updated} entries", err=True)
+
+        if spot_check:
+            click.echo("running spot-check...", err=True)
+            checked = decay_module.run_spot_check(conn)
+            click.echo(f"checked {len(checked)} low-scoring entries", err=True)
+            for e in checked:
+                adj = e.get("_rating_adjustment", 0)
+                if adj:
+                    click.echo(
+                        f"  {e['id'][:8]} score={e['decay_score']:.2f} "
+                        f"(adj: {adj:+.2f})", err=True
+                    )
+
+        if not do_run and not spot_check:
+            stats = db_module.store_stats(conn)
+            click.echo(
+                f"total: {stats['total']}  active: {stats['active']}  "
+                f"superseded: {stats['superseded']}"
+            )
+            click.echo(f"oldest: {stats['oldest']}  newest: {stats['newest']}")
+            click.echo(f"below eviction: {stats['entries_below_eviction']}")
+            click.echo(f"sources: {', '.join(stats['sources'])}")
+
+        conn.close()
+    except Exception as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+
+
+@click.command()
+def status() -> None:
+    """Show memory store statistics."""
+    try:
+        conn = db_module.get_connection()
+        db_module.init_db(conn)
+        stats = db_module.store_stats(conn)
+        click.echo(f"Total entries:   {stats['total']}")
+        click.echo(f"Active:          {stats['active']}")
+        click.echo(f"Superseded:      {stats['superseded']}")
+        click.echo(f"Below eviction:  {stats['entries_below_eviction']}")
+        click.echo(f"Oldest:          {stats['oldest']}")
+        click.echo(f"Newest:          {stats['newest']}")
+        click.echo(f"Sources:         {', '.join(stats['sources'])}")
+        conn.close()
+    except Exception as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+
+
+@click.command()
+@click.option("--output", "-o", default="~/.hermes/memories/dashboard.html",
+              show_default=True, help="Output path for the HTML dashboard")
+def dashboard(output: str) -> None:
+    """Generate a self-contained HTML memory dashboard."""
+    try:
+        conn = db_module.get_connection()
+        db_module.init_db(conn)
+        path = dashboard_module.generate(conn, output_path=output)
+        conn.close()
+        click.echo(f"Dashboard: {path}")
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)
