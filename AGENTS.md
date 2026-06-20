@@ -11,6 +11,12 @@ subtree.
   docs must stay understandable from the nearest applicable AGENTS.md plus every
   parent AGENTS.md above it
 
+## Read Before Editing
+
+1. Read AGENTS.md files from root to target path before editing
+2. Use the nearest AGENTS.md as the local contract
+3. If docs conflict, the closer doc controls
+
 ## Purpose
 
 A shared, single-user, local memory system for Hermes Agent and Pi Coding Agent.
@@ -88,6 +94,8 @@ hpm status
 
 ## Work Guidance
 
+Before any code editing in this repository, load the `code-workflow` skill and follow its instructions. This skill defines the standard engineering workflow: branching conventions, pre-edit ritual, TDD (via `tdd` skill), conventional commits, quality gates, PR creation, and documentation updates.
+
 ### Build order
 
 Follow the 5-phase plan in `hermes-pi-memory-design.html`. Phases are sequential except Phase 4 (cross-agent coherence) may run alongside Phase 3 since dedup is pure database-layer logic.
@@ -111,6 +119,12 @@ Before each commit:
 - [ ] sqlite-vec schema is compatible with the data model in this AGENTS.md
 - [ ] If changing the CLI interface, update both this AGENTS.md and the design doc
 - [ ] If changing the embedding or reranker model, update the RAM footprint analysis
+
+## Closeout
+
+1. Update nearest owning AGENTS.md if the change affects purpose, structure, contracts, or workflows
+2. Remove stale or contradictory text
+3. Run existing verification when relevant
 
 ## Child DOX Index
 
