@@ -107,7 +107,7 @@ Add the following to your project's `CLAUDE.md` so Claude Code knows about memor
 ```markdown
 ## Memory System
 
-This project uses hpm (Hermes Pi Memory) for persistent cross-session memory.
+This project uses hpm (Hybrid Persistent Memory) for persistent cross-session memory.
 MCP tools `memory-find`, `memory-save`, and `memory-capture` are available.
 
 - **Save important decisions**: when you learn a project-specific fact,

@@ -1,6 +1,6 @@
-# hpm — Hermes Pi Memory
+# hpm — Hybrid Persistent Memory
 
-Shared local vector memory for [Hermes Agent](https://hermes-agent.nousresearch.com) and Pi Coding Agent. Every conversation turn is automatically captured, summarized, embedded, and stored for semantic recall — all on-device, zero cloud costs.
+Shared local vector memory for AI agents. Every conversation turn is automatically captured, summarized, embedded, and stored for semantic recall — all on-device, zero cloud costs.
 
 ## Quick Start
 

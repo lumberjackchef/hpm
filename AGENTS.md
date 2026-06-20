@@ -1,4 +1,4 @@
-# DOX framework — hpm (Hermes Pi Memory)
+# DOX framework — hpm (Hybrid Persistent Memory)
 
 DOX is a performant AGENTS.md hierarchy. This file is the root contract for the
 hpm repository. Every AGENTS.md in the tree is a binding work contract for its
@@ -19,7 +19,7 @@ subtree.
 
 ## Purpose
 
-A shared, single-user, local memory system for Hermes Agent and Pi Coding Agent.
+A shared, single-user, local memory system for AI agents.
 Provides automatic capture of conversation turns, immediate local embedding,
 hybrid semantic + keyword recall, and cited-answer retrieval — all running
 entirely on-device with sqlite-vec.
