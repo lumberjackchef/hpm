@@ -28,13 +28,11 @@ entirely on-device with sqlite-vec.
 
 | Area | Owner |
 |------|-------|
-| Design plan | `hermes-pi-memory-design.html` (root) |
-| External review | `deepseek-v4-pro-review.md` (root) |
 | CLI tool (`hpm`) | `src/hpm/` |
 | Hermes auto-capture sidecar | `src/hpm/sidecar.py` |
-| Pi extension | `src/pi-extension/` (not yet created) |
-| Cron evaluator | `src/evaluator/` (not yet created) |
-| Dashboard | `src/dashboard/` (not yet created) |
+| Pi extension plan | `PI_EXTENSION.md` |
+| Dashboard | `src/hpm/dashboard.py` |
+| Decay evaluator | `src/hpm/decay.py` |
 
 ## Local Contracts
 
@@ -103,7 +101,7 @@ Before any code editing in this repository, load the `code-workflow` skill and f
 
 ### Build order
 
-Follow the 5-phase plan in `hermes-pi-memory-design.html`. Phases are sequential except Phase 4 (cross-agent coherence) may run alongside Phase 3 since dedup is pure database-layer logic.
+Follow the 5-phase plan in `PI_EXTENSION.md` (Phase 3) and the completed phases 1, 2, 4, 5 in the codebase. Phases are sequential except Phase 4 (cross-agent coherence) may run alongside Phase 3 since dedup is pure database-layer logic.
 
 1. **Phase 1** — Foundation: sqlite-vec + hpm CLI (capture, query, save) + Hermes sidecar
 2. **Phase 2** — Hermes Enhancement: reranker + cited answers + `/memory-find`
@@ -133,7 +131,7 @@ Before each commit:
 
 ## Child DOX Index
 
-_No child AGENTS.md files exist yet. Created as the project grows (likely `src/AGENTS.md`, `src/hermes-sidecar/AGENTS.md`, and `src/pi-extension/AGENTS.md` once those directories are established)._
+_No child AGENTS.md files exist yet. Created as the project grows (likely `src/hpm/AGENTS.md` once that directory needs its own contracts).
 
 ## User Preferences
 
