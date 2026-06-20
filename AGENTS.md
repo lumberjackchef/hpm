@@ -11,6 +11,12 @@ subtree.
   docs must stay understandable from the nearest applicable AGENTS.md plus every
   parent AGENTS.md above it
 
+## Read Before Editing
+
+1. Read AGENTS.md files from root to target path before editing
+2. Use the nearest AGENTS.md as the local contract
+3. If docs conflict, the closer doc controls
+
 ## Purpose
 
 A shared, single-user, local memory system for Hermes Agent and Pi Coding Agent.
@@ -24,8 +30,8 @@ entirely on-device with sqlite-vec.
 |------|-------|
 | Design plan | `hermes-pi-memory-design.html` (root) |
 | External review | `deepseek-v4-pro-review.md` (root) |
-| CLI tool (`hpm`) | `src/hpm/` (not yet created) |
-| Hermes auto-capture sidecar | `src/hermes-sidecar/` (not yet created) |
+| CLI tool (`hpm`) | `src/hpm/` |
+| Hermes auto-capture sidecar | `src/hpm/sidecar.py` |
 | Pi extension | `src/pi-extension/` (not yet created) |
 | Cron evaluator | `src/evaluator/` (not yet created) |
 | Dashboard | `src/dashboard/` (not yet created) |
@@ -62,9 +68,11 @@ entirely on-device with sqlite-vec.
 
 ```bash
 # CLI entry point (when built)
-hpm capture <text>
-hpm query "<query>" [--limit N] [--tags ...]
+hpm capture <text> [--tags ...] [--session-id] [--no-summarize]
+hpm query "<query>" [--limit N] [--tags ...] [--mode vector|keyword|hybrid]
 hpm save "<fact>" [--tags ...]
+hpm sidecar [--once] [--poll-interval N]                            # implemented
+# Phase 2+
 hpm embed --batch
 hpm decay --run
 hpm status
@@ -87,6 +95,8 @@ hpm status
 - **Pi auto-capture depends on extension API** — If Pi lacks a post-turn hook, fall back to polling its session file. Confirm API surface during Phase 3.
 
 ## Work Guidance
+
+Before any code editing in this repository, load the `code-workflow` skill and follow its instructions. This skill defines the standard engineering workflow: branching conventions, pre-edit ritual, TDD (via `tdd` skill), conventional commits, quality gates, PR creation, and documentation updates.
 
 ### Build order
 
@@ -111,6 +121,12 @@ Before each commit:
 - [ ] sqlite-vec schema is compatible with the data model in this AGENTS.md
 - [ ] If changing the CLI interface, update both this AGENTS.md and the design doc
 - [ ] If changing the embedding or reranker model, update the RAM footprint analysis
+
+## Closeout
+
+1. Update nearest owning AGENTS.md if the change affects purpose, structure, contracts, or workflows
+2. Remove stale or contradictory text
+3. Run existing verification when relevant
 
 ## Child DOX Index
 
