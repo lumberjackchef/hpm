@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS memories (
     timestamp TEXT NOT NULL,
     tags TEXT NOT NULL DEFAULT '[]',
     decay_score REAL NOT NULL DEFAULT 1.0,
-    superseded_by TEXT,
     access_scope TEXT NOT NULL DEFAULT 'all',
     last_accessed TEXT
 );
@@ -189,8 +188,7 @@ def merge_or_insert(
     - No match → insert new entry.
     - Match found, content is semantically similar → merge (update timestamp,
       append source to source array, update tags).
-    - Match found, content differs significantly → insert as new entry and
-      mark the old one as ``superseded_by`` the new one.
+    - Match found, content differs significantly → insert as new entry fresh.
 
     Returns the UUID ``id`` of the active entry.
     """
@@ -504,11 +502,10 @@ def migrate_v1(conn: "sqlite3.Connection") -> None:
     """Migrate legacy entries (v1 schema) to the new schema (v2).
 
     v1 had ``source`` as a plain string. v2 stores it as a JSON array.
-    Also adds ``superseded_by`` and ``access_scope`` columns if missing.
+    Adds ``access_scope`` and ``last_accessed`` columns if missing.
     """
     # Add new columns if they don't exist (safe for ALTER TABLE)
     for col, col_type in [
-        ("superseded_by", "TEXT"),
         ("access_scope", "TEXT DEFAULT 'all'"),
         ("last_accessed", "TEXT"),
     ]:
@@ -529,21 +526,7 @@ def migrate_v1(conn: "sqlite3.Connection") -> None:
         conn.commit()
 
 
-def get_superseded_entries(
-    conn: "sqlite3.Connection",
-    limit: int = 10,
-) -> list[dict[str, Any]]:
-    """Fetch entries that have been superseded by newer ones.
 
-    Returns entries where ``superseded_by`` is not null, ordered by timestamp
-    descending.
-    """
-    rows = conn.execute(
-        "SELECT m.* FROM memories m WHERE m.superseded_by IS NOT NULL "
-        "ORDER BY m.timestamp DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
-    return [_row_to_dict(r) for r in rows]
 
 
 # ── Decay & Reinforcement ─────────────────────────────────────────────────
@@ -601,7 +584,7 @@ def run_decay(
     """
     rows = conn.execute(
         "SELECT id, decay_score, last_accessed FROM memories "
-        "WHERE superseded_by IS NULL"
+        ""
     ).fetchall()
     updated = 0
     for row in rows:
@@ -622,20 +605,14 @@ def run_decay(
 def store_stats(conn: "sqlite3.Connection") -> dict[str, Any]:
     """Return summary statistics about the memory store."""
     total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-    active = conn.execute(
-        "SELECT COUNT(*) FROM memories WHERE superseded_by IS NULL"
-    ).fetchone()[0]
-    superseded = conn.execute(
-        "SELECT COUNT(*) FROM memories WHERE superseded_by IS NOT NULL"
-    ).fetchone()[0]
     oldest = conn.execute(
-        "SELECT MIN(timestamp) FROM memories WHERE superseded_by IS NULL"
+        "SELECT MIN(timestamp) FROM memories"
     ).fetchone()[0]
     newest = conn.execute(
-        "SELECT MAX(timestamp) FROM memories WHERE superseded_by IS NULL"
+        "SELECT MAX(timestamp) FROM memories"
     ).fetchone()[0]
     low_score = conn.execute(
-        "SELECT COUNT(*) FROM memories WHERE decay_score < ? AND superseded_by IS NULL",
+        "SELECT COUNT(*) FROM memories WHERE decay_score < ?",
         (EVICTION_THRESHOLD,),
     ).fetchone()[0]
     distinct_sources = conn.execute(
@@ -648,8 +625,6 @@ def store_stats(conn: "sqlite3.Connection") -> dict[str, Any]:
 
     return {
         "total": total,
-        "active": active,
-        "superseded": superseded,
         "oldest": oldest or "—",
         "newest": newest or "—",
         "entries_below_eviction": low_score,

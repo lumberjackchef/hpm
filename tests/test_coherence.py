@@ -96,15 +96,7 @@ class TestMigration:
 
 
 class TestSuperseded:
-    def test_get_superseded_returns_none_initially(self, conn):
-        """get_superseded_entries returns empty when nothing is superseded."""
-        vec = np.array([0.1] * 384, dtype=np.float32)
-        db.insert_memory(conn, content="Test", embedding=vec)
-        assert db.get_superseded_entries(conn) == []
-
-    def test_merge_does_not_create_superseded(self, conn):
-        """Merging a near-duplicate updates the existing entry, no superseded record."""
-        vec = np.array([0.1] * 384, dtype=np.float32)
-        db.merge_or_insert(conn, "Original content", embedding=vec, source="hermes")
-        db.merge_or_insert(conn, "Original content variant", embedding=vec, source="pi")
-        assert db.get_superseded_entries(conn) == []
+    def test_no_superseded_functionality(self, conn):
+        """The superseded_by system has been removed from the codebase."""
+        # Just verify the function no longer exists
+        assert not hasattr(db, "get_superseded_entries")

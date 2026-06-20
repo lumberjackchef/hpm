@@ -231,10 +231,7 @@ def decay(do_run: bool, spot_check: bool) -> None:
 
         if not do_run and not spot_check:
             stats = db_module.store_stats(conn)
-            click.echo(
-                f"total: {stats['total']}  active: {stats['active']}  "
-                f"superseded: {stats['superseded']}"
-            )
+            click.echo(f"total: {stats['total']}")
             click.echo(f"oldest: {stats['oldest']}  newest: {stats['newest']}")
             click.echo(f"below eviction: {stats['entries_below_eviction']}")
             click.echo(f"sources: {', '.join(stats['sources'])}")
@@ -253,8 +250,6 @@ def status() -> None:
         db_module.init_db(conn)
         stats = db_module.store_stats(conn)
         click.echo(f"Total entries:   {stats['total']}")
-        click.echo(f"Active:          {stats['active']}")
-        click.echo(f"Superseded:      {stats['superseded']}")
         click.echo(f"Below eviction:  {stats['entries_below_eviction']}")
         click.echo(f"Oldest:          {stats['oldest']}")
         click.echo(f"Newest:          {stats['newest']}")

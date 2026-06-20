@@ -43,7 +43,7 @@ def run_spot_check(
     """
     rows = conn.execute(
         "SELECT id, content, timestamp, tags, decay_score FROM memories "
-        "WHERE superseded_by IS NULL ORDER BY decay_score ASC LIMIT ?",
+        "ORDER BY decay_score ASC LIMIT ?",
         (SPOT_CHECK_COUNT,),
     ).fetchall()
 

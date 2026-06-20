@@ -26,7 +26,7 @@ def _score_distribution(conn: "sqlite3.Connection") -> dict[str, int]:
         "0.75-1.00": 0,
     }
     rows = conn.execute(
-        "SELECT decay_score FROM memories WHERE superseded_by IS NULL"
+        "SELECT decay_score FROM memories"
     ).fetchall()
     for row in rows:
         s = row["decay_score"]
@@ -45,7 +45,7 @@ def _recent_entries(conn: "sqlite3.Connection", limit: int = 50) -> list[dict[st
     """Fetch recent active entries for the table."""
     rows = conn.execute(
         "SELECT id, content, source, timestamp, decay_score, tags, "
-        "last_accessed, session_id FROM memories WHERE superseded_by IS NULL "
+        "last_accessed, session_id FROM memories "
         "ORDER BY timestamp DESC LIMIT ?",
         (limit,),
     ).fetchall()
@@ -118,7 +118,7 @@ def generate(conn: "sqlite3.Connection", output_path: str = DASHBOARD_PATH) -> s
   </div>
   <div class="stat-card">
     <div class="value">{stats['total']}</div>
-    <div class="label">Total (inc. superseded)</div>
+    <div class="label">Total</div>
   </div>
   <div class="stat-card">
     <div class="value">{stats['entries_below_eviction']}</div>
