@@ -16,6 +16,9 @@ cli.add_command(cli_module.query)
 cli.add_command(cli_module.save)
 cli.add_command(cli_module.sidecar)
 cli.add_command(cli_module.answer)
+cli.add_command(cli_module.decay)
+cli.add_command(cli_module.status)
+cli.add_command(cli_module.dashboard)
 
 
 if __name__ == "__main__":

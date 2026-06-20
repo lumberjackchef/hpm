@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS memories (
     tags TEXT NOT NULL DEFAULT '[]',
     decay_score REAL NOT NULL DEFAULT 1.0,
     superseded_by TEXT,
-    access_scope TEXT NOT NULL DEFAULT 'all'
+    access_scope TEXT NOT NULL DEFAULT 'all',
+    last_accessed TEXT
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
@@ -460,7 +461,11 @@ def migrate_v1(conn: "sqlite3.Connection") -> None:
     Also adds ``superseded_by`` and ``access_scope`` columns if missing.
     """
     # Add new columns if they don't exist (safe for ALTER TABLE)
-    for col, col_type in [("superseded_by", "TEXT"), ("access_scope", "TEXT DEFAULT 'all'")]:
+    for col, col_type in [
+        ("superseded_by", "TEXT"),
+        ("access_scope", "TEXT DEFAULT 'all'"),
+        ("last_accessed", "TEXT"),
+    ]:
         try:
             conn.execute(f"ALTER TABLE memories ADD COLUMN {col} {col_type}")
         except sqlite3.OperationalError:
@@ -493,3 +498,114 @@ def get_superseded_entries(
         (limit,),
     ).fetchall()
     return [_row_to_dict(r) for r in rows]
+
+
+# ── Decay & Reinforcement ─────────────────────────────────────────────────
+
+
+HALF_LIFE_HOURS = 168  # 1 week
+EVICTION_THRESHOLD = 0.25
+
+
+def reinforce(conn: "sqlite3.Connection", mem_id: str) -> None:
+    """Reset decay_score to 1.0 and update last_accessed for a memory entry.
+
+    Called automatically when a memory is retrieved in a query.
+    """
+    now = _now()
+    with_retry(lambda: conn.execute(
+        "UPDATE memories SET decay_score = 1.0, last_accessed = ? WHERE id = ?",
+        (now, mem_id),
+    ))
+    conn.commit()
+
+
+def compute_decay_score(
+    decay_score: float,
+    last_accessed: str | None,
+    half_life: float = HALF_LIFE_HOURS,
+) -> float:
+    """Compute the current decay score using the exponential decay formula.
+
+    ``score = 0.5 ^ (hours_since_update / half_life)``
+    """
+    if not last_accessed:
+        return decay_score
+
+    try:
+        last = datetime.fromisoformat(last_accessed)
+        delta = datetime.now(timezone.utc) - last
+        hours = delta.total_seconds() / 3600.0
+    except (ValueError, TypeError):
+        return decay_score
+
+    if hours <= 0:
+        return 1.0
+
+    return float(decay_score * (0.5 ** (hours / half_life)))
+
+
+def run_decay(
+    conn: "sqlite3.Connection",
+    half_life: float = HALF_LIFE_HOURS,
+) -> int:
+    """Compute and update decay scores for all active entries.
+
+    Returns the number of entries updated.
+    """
+    rows = conn.execute(
+        "SELECT id, decay_score, last_accessed FROM memories "
+        "WHERE superseded_by IS NULL"
+    ).fetchall()
+    updated = 0
+    for row in rows:
+        new_score = compute_decay_score(
+            row["decay_score"], row["last_accessed"], half_life,
+        )
+        if new_score != row["decay_score"]:
+            conn.execute(
+                "UPDATE memories SET decay_score = ? WHERE id = ?",
+                (new_score, row["id"]),
+            )
+            updated += 1
+    if updated:
+        conn.commit()
+    return updated
+
+
+def store_stats(conn: "sqlite3.Connection") -> dict[str, Any]:
+    """Return summary statistics about the memory store."""
+    total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+    active = conn.execute(
+        "SELECT COUNT(*) FROM memories WHERE superseded_by IS NULL"
+    ).fetchone()[0]
+    superseded = conn.execute(
+        "SELECT COUNT(*) FROM memories WHERE superseded_by IS NOT NULL"
+    ).fetchone()[0]
+    oldest = conn.execute(
+        "SELECT MIN(timestamp) FROM memories WHERE superseded_by IS NULL"
+    ).fetchone()[0]
+    newest = conn.execute(
+        "SELECT MAX(timestamp) FROM memories WHERE superseded_by IS NULL"
+    ).fetchone()[0]
+    low_score = conn.execute(
+        "SELECT COUNT(*) FROM memories WHERE decay_score < ? AND superseded_by IS NULL",
+        (EVICTION_THRESHOLD,),
+    ).fetchone()[0]
+    distinct_sources = conn.execute(
+        "SELECT DISTINCT source FROM memories"
+    ).fetchall()
+    sources: set[str] = set()
+    for row in distinct_sources:
+        for s in _parse_source_array(row["source"]):
+            sources.add(s)
+
+    return {
+        "total": total,
+        "active": active,
+        "superseded": superseded,
+        "oldest": oldest or "—",
+        "newest": newest or "—",
+        "entries_below_eviction": low_score,
+        "sources": sorted(sources),
+    }
