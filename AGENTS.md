@@ -30,7 +30,7 @@ entirely on-device with sqlite-vec.
 |------|-------|
 | CLI tool (`hpm`) | `src/hpm/` |
 | Hermes auto-capture sidecar | `src/hpm/sidecar.py` |
-| Pi extension plan | `PI_EXTENSION.md` |
+| Pi extension plan | `planned/PI_EXTENSION.md` |
 | Dashboard | `src/hpm/dashboard.py` |
 | Decay evaluator | `src/hpm/decay.py` |
 
@@ -115,7 +115,7 @@ Before any code editing in this repository, load the `code-workflow` skill and f
 
 ### Build order
 
-Follow the 5-phase plan in `PI_EXTENSION.md` (Phase 3) and the completed phases 1, 2, 4, 5 in the codebase. Phases are sequential except Phase 4 (cross-agent coherence) may run alongside Phase 3 since dedup is pure database-layer logic.
+Follow the 5-phase plan in `planned/PI_EXTENSION.md` (Phase 3) and the completed phases 1, 2, 4, 5 in the codebase. Phases are sequential except Phase 4 (cross-agent coherence) may run alongside Phase 3 since dedup is pure database-layer logic.
 
 1. **Phase 1** — Foundation: sqlite-vec + hpm CLI (capture, query, save) + Hermes sidecar
 2. **Phase 2** — Hermes Enhancement: reranker + cited answers + `/memory-find`
