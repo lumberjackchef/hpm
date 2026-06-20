@@ -23,15 +23,39 @@ Claude Code supports project-level MCP server config via `.mcp.json` at the repo
 
 If the engineer has the repo checked out at a different path, update the `command` and `args` paths accordingly.
 
-### 2. Ensure the API Key is Available
+### 2. Configure the LLM Provider
 
-The MCP server needs `OPENCODE_GO_API_KEY` in its environment for summarization and answer synthesis. Add it to `~/.hermes/.env` (Hermes's env file is shared):
+hpm supports multiple LLM providers for summarization and answer synthesis, configurable via environment variables:
+
+| Provider | `HPM_LLM_PROVIDER` | API Key | Default Model |
+|---|---|---|---|
+| OpenCode Go | `opencode` (default) | `OPENCODE_GO_API_KEY` | `minimax-m2.5` |
+| Anthropic | `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
+| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | `anthropic/claude-sonnet-4` |
+
+If you have an Anthropic key but no OpenCode account, set:
 
 ```bash
-echo 'OPENCODE_GO_API_KEY="***"' >> ~/.hermes/.env
+export HPM_LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-***
+
+# Or persist in ~/.hermes/.env:
+echo 'HPM_LLM_PROVIDER=anthropic' >> ~/.hermes/.env
+echo 'ANTHROPIC_API_KEY=sk-ant-***' >> ~/.hermes/.env
 ```
 
-Or add it to the shell profile (`~/.zshrc`, `~/.bashrc`). When Claude Code launches the MCP server, it inherits the parent shell's environment.
+If you do have an OpenCode key, the default works as-is:
+
+```bash
+echo 'OPENCODE_GO_API_KEY=***' >> ~/.hermes/.env
+```
+
+To override the model for any provider:
+
+```bash
+export HPM_LLM_MODEL=claude-sonnet-4-20250514
+```
 
 ### 3. Verify
 
@@ -94,8 +118,7 @@ Claude Code session
   → hpm Python library
     → sqlite-vec vector store (~/.hermes/memories/memories.db)
     → BGE-small embedding (fastembed/ONNX, ~3ms)
-    → OpenCode Go summarization (for capture)
-    → OpenCode Go cited-answer synthesis (for find)
+    → Configured LLM provider (HPM_LLM_PROVIDER) for summarization and answer synthesis
 ```
 
 All data is local — same store, same models, shared between Hermes and Claude Code.
