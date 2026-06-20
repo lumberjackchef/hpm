@@ -18,8 +18,20 @@ hpm capture "User: what's the capital of France? Assistant: Paris" --tags topic:
 hpm query "weather fact"
 hpm query "capital city" --mode vector
 
+# Full recall pipeline: hybrid search → reranker → cited answer
+hpm answer "weather fact"
+
 # Run auto-capture daemon
 hpm sidecar
+
+# Check store stats
+hpm status
+
+# Generate and open memory dashboard
+hpm dashboard
+
+# Run decay evaluator
+hpm decay --run && hpm decay --spot-check
 ```
 
 ## How It Works
@@ -34,18 +46,26 @@ Conversation turn
   → ~/.hermes/memories/daily/YYYY-MM-DD.md (plain-text backup)
 ```
 
-### Multi-Tier Recall
+### Recall Pipeline (Tier 1 → 2 → 3)
 
-| Tier | What | When |
-|------|------|------|
-| **0** | Injected context (frozen memory snapshot) | In prompt — fastest |
-| **1** | Hybrid vector + FTS5 BM25 search | Semantic recall |
-| **2** | Cross-encoder reranker | Reorder candidates (Phase 2) |
-| **3** | Cited-answer synthesis via LLM | Final answer with sources (Phase 2) |
+```
+User query
+  → Tier 1: Hybrid search (vector cosine + BM25 keyword)
+  → Tier 2: Cross-encoder reranker (transient load, ~200MB)
+  → Tier 3: Cited-answer synthesis via OpenCode Go
+```
 
 ### Auto-Capture (Sidecar)
 
 The sidecar (`hpm sidecar`) polls `~/.hermes/state.db` — the SQLite session store Hermes uses internally. It detects new user→assistant message pairs, summarizes them, embeds them, and stores them. A JSON cursor file tracks position so it survives restarts.
+
+### Dedup & Coherence
+
+Every insert checks for a near neighbor (cosine > 0.85). If found, sources and tags are merged instead of creating a duplicate row. Conflicting facts are handled via timestamp-win with a `superseded_by` pointer.
+
+### Decay & Hygiene
+
+Memory scores decay exponentially (half-life: 1 week) and are reinforced on every retrieval. The spot-check loop samples low-scoring entries and rates them via LLM (STALE / QUESTIONABLE / VALID) to catch stale information.
 
 ## CLI Commands
 
@@ -54,13 +74,28 @@ The sidecar (`hpm sidecar`) polls `~/.hermes/state.db` — the SQLite session st
 | `hpm save <fact>` | Save an explicit fact (no summarization) |
 | `hpm capture <text>` | Capture a turn: summarize, embed, store |
 | `hpm query <query>` | Search memory (vector, keyword, or hybrid) |
-| `hpm sidecar` | Run the auto-capture daemon |
+| `hpm answer <query>` | Full recall pipeline: search → rerank → cited answer |
+| `hpm sidecar` | Run the Hermes state.db auto-capture daemon |
+| `hpm status` | Show store statistics |
+| `hpm decay --run` | Compute decay scores for all entries |
+| `hpm decay --spot-check` | LLM spot-check low-scoring entries |
+| `hpm dashboard` | Generate and open HTML dashboard in browser |
+
+## MCP Server (Hermes Integration)
+
+Register with Hermes for native tool access:
+
+```bash
+hermes mcp add hpm --command /path/to/python3 --args /path/to/hpm_mcp_server.py
+```
+
+Exposes `memory-find`, `memory-save`, and `memory-capture` as Hermes tools.
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCODE_GO_API_KEY` | — | **Required** for summarization |
+| `OPENCODE_GO_API_KEY` | — | **Required** for summarization and answer synthesis |
 | `OPENCODE_GO_BASE_URL` | `https://opencode.ai/zen/go/v1` | API base URL |
 | `HPM_SUMMARIZATION_MODEL` | `minimax-m2.5` | Model for summarization |
 | `HPM_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Model for embeddings |
@@ -71,14 +106,19 @@ The sidecar (`hpm sidecar`) polls `~/.hermes/state.db` — the SQLite session st
 ```
 src/hpm/
   __main__.py     CLI entry point
+  answer.py       Cited-answer synthesis (Tier 3)
   cli.py          Command implementations
   config.py       Paths and environment defaults
-  db.py           sqlite-vec schema, WAL mode, write retry, queries
   daily.py        Daily markdown audit trail
+  dashboard.py    Self-contained HTML dashboard generator
+  db.py           sqlite-vec schema, WAL mode, dedup, decay, queries
+  decay.py        Decay evaluator and LLM spot-check
   embed.py        BGE-small embedding (lazy-loaded singleton)
+  rerank.py       Cross-encoder reranker (Tier 2, transient load)
   sidecar.py      Hermes state.db poller daemon
   summarize.py    OpenCode Go API client
-tests/            pytest suite (27 tests)
+hpm_mcp_server.py  MCP server for Hermes agent integration
+tests/            pytest suite (46 tests)
 ```
 
 ## Development
@@ -101,10 +141,10 @@ make test      # pytest
 
 ## Phase Plan
 
-| Phase | What |
-|-------|------|
-| **1** ✅ | Foundation: sqlite-vec + CLI + Hermes sidecar |
-| **2** | Enhancement: reranker + cited answers + /memory-find |
-| **3** | Pi extension: TypeScript extension for Pi |
-| **4** | Multi-agent coherence: dedup + conflict resolution |
-| **5** | Observability: decay evaluator + dashboard |
+| Phase | What | Status |
+|-------|------|--------|
+| **1** | Foundation: sqlite-vec + CLI + Hermes sidecar | ✅ |
+| **2** | Enhancement: hybrid search, reranker, cited answers, MCP server | ✅ |
+| **3** | Pi extension: TypeScript extension for Pi | ⏸️ Deferred |
+| **4** | Coherence: dedup, conflict resolution, schema migration | ✅ |
+| **5** | Observability: decay evaluator, spot-check, dashboard, status | ✅ |

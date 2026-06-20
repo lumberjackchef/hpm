@@ -67,15 +67,18 @@ entirely on-device with sqlite-vec.
 ### Build & run
 
 ```bash
-# CLI entry point (when built)
+# CLI entry point
 hpm capture <text> [--tags ...] [--session-id] [--no-summarize]
 hpm query "<query>" [--limit N] [--tags ...] [--mode vector|keyword|hybrid]
 hpm save "<fact>" [--tags ...]
-hpm sidecar [--once] [--poll-interval N]                            # implemented
-# Phase 2+
-hpm embed --batch
-hpm decay --run
+hpm answer "<query>" [--limit N] [--no-rerank]
+hpm sidecar [--once] [--poll-interval N]
 hpm status
+hpm decay --run [--spot-check]
+hpm dashboard [-o PATH]
+
+# MCP server registration
+hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py
 ```
 
 ### Environment variables
