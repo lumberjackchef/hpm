@@ -30,8 +30,8 @@ entirely on-device with sqlite-vec.
 |------|-------|
 | Design plan | `hermes-pi-memory-design.html` (root) |
 | External review | `deepseek-v4-pro-review.md` (root) |
-| CLI tool (`hpm`) | `src/hpm/` (not yet created) |
-| Hermes auto-capture sidecar | `src/hermes-sidecar/` (not yet created) |
+| CLI tool (`hpm`) | `src/hpm/` |
+| Hermes auto-capture sidecar | `src/hpm/sidecar.py` |
 | Pi extension | `src/pi-extension/` (not yet created) |
 | Cron evaluator | `src/evaluator/` (not yet created) |
 | Dashboard | `src/dashboard/` (not yet created) |
@@ -68,9 +68,11 @@ entirely on-device with sqlite-vec.
 
 ```bash
 # CLI entry point (when built)
-hpm capture <text>
-hpm query "<query>" [--limit N] [--tags ...]
+hpm capture <text> [--tags ...] [--session-id] [--no-summarize]
+hpm query "<query>" [--limit N] [--tags ...] [--mode vector|keyword|hybrid]
 hpm save "<fact>" [--tags ...]
+hpm sidecar [--once] [--poll-interval N]                            # implemented
+# Phase 2+
 hpm embed --batch
 hpm decay --run
 hpm status
