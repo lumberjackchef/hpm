@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import webbrowser
 
@@ -263,6 +264,103 @@ def dashboard(output: str) -> None:
         conn.close()
         click.echo(f"Dashboard: {path}")
         webbrowser.open(f"file://{path}")
+    except Exception as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+
+
+@click.command()
+def setup() -> None:
+    """Interactively configure hpm (provider, API keys, etc.)."""
+    try:
+        click.echo()
+        click.echo("╭─ hpm setup ──────────────────────────────────╮")
+        click.echo("│                                              │")
+        click.echo("│  This will configure your LLM provider and   │")
+        click.echo("│  API key in ~/.hpm/.env.                     │")
+        click.echo("│                                              │")
+        click.echo("╰──────────────────────────────────────────────╯")
+        click.echo()
+
+        providers = {
+            "opencode": {
+                "label": "OpenCode Go",
+                "key_var": "OPENCODE_GO_API_KEY",
+                "default_model": "minimax-m2.5",
+                "desc": "Best if you already have an OpenCode account.",
+            },
+            "anthropic": {
+                "label": "Anthropic (Claude)",
+                "key_var": "ANTHROPIC_API_KEY",
+                "default_model": "claude-sonnet-4-20250514",
+                "desc": "Native Claude API. Best for Claude Code users.",
+            },
+            "openai": {
+                "label": "OpenAI",
+                "key_var": "OPENAI_API_KEY",
+                "default_model": "gpt-4o-mini",
+                "desc": "Direct OpenAI API.",
+            },
+            "openrouter": {
+                "label": "OpenRouter",
+                "key_var": "OPENROUTER_API_KEY",
+                "default_model": "anthropic/claude-sonnet-4",
+                "desc": "Multi-provider proxy, one key for any model.",
+            },
+        }
+        choices = list(providers.keys())
+        default_idx = choices.index(config.LLM_PROVIDER) + 1
+
+        click.echo("Select an LLM provider:")
+        for i, p in enumerate(choices, 1):
+            info = providers[p]
+            click.echo(f"  {i}) {info['label']}")
+            click.echo(f"     {info['desc']}")
+
+        choice = click.prompt(
+            f"\nProvider [1-{len(choices)}]",
+            type=click.IntRange(1, len(choices)),
+            default=default_idx,
+            show_default=False,
+        )
+        provider = choices[choice - 1]
+        info = providers[provider]
+
+        # API key
+        existing = os.environ.get(info["key_var"], "")
+        masked = f"{existing[:4]}***" if existing else ""
+        prompt_text = f"API key ({info['key_var']})"
+        if masked:
+            prompt_text += f" [{masked}]"
+        api_key = click.prompt(prompt_text, default="", show_default=False)
+        if not api_key:
+            api_key = existing or ""
+
+        # Model override
+        model = click.prompt(
+            f"Model [enter for {info['default_model']}]",
+            default="",
+            show_default=False,
+        )
+        if not model:
+            model = ""
+
+        config.write_env(
+            HPM_LLM_PROVIDER=provider,
+            **{info["key_var"]: api_key},
+            HPM_LLM_MODEL=model if model else "",
+        )
+
+        click.echo()
+        click.echo("  ✓ Configured!")
+        click.echo(f"    Provider: {info['label']}")
+        click.echo(f"    Model:    {model or info['default_model']}")
+        click.echo("    Config:   ~/.hpm/.env")
+        click.echo()
+        click.echo("  Next: run `hpm status` to verify")
+        click.echo()
+    except click.Abort:
+        click.echo("\n  Setup cancelled.")
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)

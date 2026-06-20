@@ -19,6 +19,7 @@ cli.add_command(cli_module.answer)
 cli.add_command(cli_module.decay)
 cli.add_command(cli_module.status)
 cli.add_command(cli_module.dashboard)
+cli.add_command(cli_module.setup)
 
 
 if __name__ == "__main__":

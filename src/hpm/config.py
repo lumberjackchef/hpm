@@ -70,6 +70,48 @@ def _ensure_hpm_dir() -> None:
         _HPM_ENV_FILE.write_text(_HPM_ENV_STUB.strip() + "\n")
 
 
+def write_env(**kwargs: str) -> Path:
+    """Write key=value pairs to ``~/.hpm/.env``.
+
+    Existing entries for the same key are replaced; other lines are preserved.
+    Creates the directory and file if needed.
+    """
+    _HPM_ENV_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Read existing lines
+    existing: dict[str, str] = {}
+    other_lines: list[str] = []
+    if _HPM_ENV_FILE.exists():
+        with open(_HPM_ENV_FILE) as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and "=" in stripped:
+                    key, _, _ = stripped.partition("=")
+                    existing[key.strip()] = stripped
+                else:
+                    other_lines.append(line.rstrip())
+
+    # Merge — new values override existing
+    merged = dict(existing)
+    for key, val in kwargs.items():
+        if val:
+            merged[key] = f"{key}={val}"
+        elif key in merged:
+            del merged[key]  # empty val = remove
+
+    # Write back
+    with open(_HPM_ENV_FILE, "w") as f:
+        for line in other_lines:
+            if line:
+                f.write(line + "\n")
+        if merged:
+            f.write("\n")
+        for line in merged.values():
+            f.write(line + "\n")
+
+    return _HPM_ENV_FILE
+
+
 _ensure_hpm_dir()
 
 # ── Data directory ───────────────────────────────────────────────────────
