@@ -191,7 +191,7 @@ def query_vector(
     """
     vec_bytes = serialize_vector(query_embedding)
     rows = with_retry(lambda: conn.execute(
-        "SELECT m.*, v.distance FROM memories_vec v "
+        "SELECT m.rowid, m.*, v.distance FROM memories_vec v "
         "JOIN memories m ON m.rowid = v.rowid "
         "WHERE v.embedding MATCH ? AND v.k = ? "
         "ORDER BY v.distance",
@@ -213,7 +213,7 @@ def query_keyword(
     # FTS5 query syntax: escape double-quotes, wrap phrases
     fts_query = _to_fts5_query(query)
     rows = with_retry(lambda: conn.execute(
-        "SELECT m.*, fts.rank FROM memories_fts fts "
+        "SELECT m.rowid, m.*, fts.rank FROM memories_fts fts "
         "JOIN memories m ON m.rowid = fts.rowid "
         "WHERE fts.content MATCH ? "
         "ORDER BY fts.rank "
@@ -222,6 +222,80 @@ def query_keyword(
     ).fetchall())
 
     return [_row_to_dict(r) for r in rows]
+
+
+def query_hybrid(
+    conn: "sqlite3.Connection",
+    query: str,
+    query_embedding: npt.NDArray[np.float32],
+    limit: int = 10,
+    *,
+    vector_weight: float = 0.7,
+    fetch_size: int = 20,
+) -> list[dict[str, Any]]:
+    """Fuse vector similarity and BM25 keyword scores into a unified ranking.
+
+    Runs both searches independently, normalizes scores to [0, 1], merges
+    with *vector_weight* controlling the blend (keyword gets 1 - vector_weight),
+    and returns deduplicated results sorted by combined score descending.
+
+    Args:
+        vector_weight: How much to weight the vector score (0.0 = keyword only,
+                       1.0 = vector only). Default 0.7.
+        fetch_size: How many candidates to fetch from each search before fusion.
+    """
+    # 1. Run both searches
+    vec_results = query_vector(conn, query_embedding, limit=fetch_size)
+    kw_results = query_keyword(conn, query, limit=fetch_size)
+
+    # 2. Normalize scores to [0, 1] where 1 = best
+    #    vec distance: 0 = identical, so sim = 1 - (distance / max_distance)
+    if vec_results:
+        max_dist = max(r.get("distance", 0) for r in vec_results) or 1.0
+        for r in vec_results:
+            r["_vec_score"] = 1.0 - (r.get("distance", 0) / max_dist)
+
+    #    FTS5 rank: most negative = best match. Normalize by min rank.
+    if kw_results:
+        min_rank = min(r.get("rank", 0) for r in kw_results)
+        # If all ranks are equal (or 0), give them 0.5
+        if min_rank < 0:
+            for r in kw_results:
+                r["_kw_score"] = 1.0 - (r.get("rank", 0) / min_rank)
+        else:
+            for r in kw_results:
+                r["_kw_score"] = 0.5
+
+    # 3. Merge by rowid with weighted score
+    merged: dict[int, dict[str, Any]] = {}
+    for r in vec_results:
+        rowid = r["rowid"]
+        r["_combined"] = vector_weight * r.pop("_vec_score", 0)
+        r["distance"] = None  # clear raw scores from output
+        merged[rowid] = r
+
+    for r in kw_results:
+        rowid = r["rowid"]
+        kw_score = r.pop("_kw_score", 0)
+        if rowid in merged:
+            merged[rowid]["_combined"] += (1 - vector_weight) * kw_score
+        else:
+            r["_combined"] = (1 - vector_weight) * kw_score
+            r["rank"] = None
+            merged[rowid] = r
+
+    # 4. Sort by combined score descending, trim to limit
+    sorted_results = sorted(
+        merged.values(), key=lambda x: x["_combined"], reverse=True
+    )[:limit]
+
+    # Clean up internal score fields
+    for r in sorted_results:
+        r.pop("_combined", None)
+        r.pop("distance", None)
+        r.pop("rank", None)
+
+    return sorted_results
 
 
 def get_memory_by_id(conn: "sqlite3.Connection", mem_id: str) -> dict[str, Any] | None:

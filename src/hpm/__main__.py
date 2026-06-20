@@ -15,6 +15,7 @@ cli.add_command(cli_module.capture)
 cli.add_command(cli_module.query)
 cli.add_command(cli_module.save)
 cli.add_command(cli_module.sidecar)
+cli.add_command(cli_module.answer)
 
 
 if __name__ == "__main__":
