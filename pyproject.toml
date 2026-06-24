@@ -3,7 +3,7 @@ name = "hpm"
 version = "0.1.0"
 description = "Hermes Pi Memory — shared local vector memory for AI agents"
 authors = [
-    {name = "Ryan Pearson", email = "lumberjackchef@proton.me"},
+    {name = "Ryan Pearson", email = "ryan@ryanpearson.net"},
 ]
 requires-python = ">=3.11"
 dependencies = [
