@@ -33,6 +33,7 @@ entirely on-device with sqlite-vec.
 | Pi extension plan | `planned/PI_EXTENSION.md` |
 | Dashboard | `src/hpm/dashboard.py` |
 | Decay evaluator | `src/hpm/decay.py` |
+| Future: Wiki layer | `planned/WIKI_LAYER.md` |
 | Future: Conflict detector | `planned/CONFLICT_DETECTOR.md` |
 
 ## Local Contracts
