@@ -630,3 +630,20 @@ def store_stats(conn: "sqlite3.Connection") -> dict[str, Any]:
         "entries_below_eviction": low_score,
         "sources": sorted(sources),
     }
+
+
+def query_recent(
+    conn: "sqlite3.Connection",
+    hours: int = 24,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Fetch memories from the last N hours."""
+    import datetime as _dt
+
+    cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=hours)
+    cutoff_str = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = conn.execute(
+        "SELECT * FROM memories WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?",
+        (cutoff_str, limit),
+    ).fetchall()
+    return [_row_to_dict(r) for r in rows]

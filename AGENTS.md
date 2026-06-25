@@ -33,7 +33,7 @@ entirely on-device with sqlite-vec.
 | Pi extension plan | `planned/PI_EXTENSION.md` |
 | Dashboard | `src/hpm/dashboard.py` |
 | Decay evaluator | `src/hpm/decay.py` |
-| Future: Wiki layer | `planned/WIKI_LAYER.md` |
+| Wiki layer | `src/hpm/wiki/` |
 | Future: Conflict detector | `planned/CONFLICT_DETECTOR.md` |
 
 ## Local Contracts
@@ -77,6 +77,11 @@ hpm sidecar [--once] [--poll-interval N]
 hpm status
 hpm decay --run [--spot-check]
 hpm dashboard [-o PATH]
+hpm wiki init
+hpm wiki compile <topic> [--force]
+hpm wiki find <query>
+hpm wiki sync [--hours N] [--dry-run]
+hpm wiki lint [--fix]
 
 # MCP server registration
 hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py

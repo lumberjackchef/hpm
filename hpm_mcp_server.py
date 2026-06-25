@@ -41,6 +41,7 @@ from hpm import (  # noqa: E402, I001
     embed,  # lazy — fastembed is heavy, only imported when first handler runs
     summarize,
 )
+from hpm.wiki import find as wiki_find  # noqa: E402
 
 logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 logger = logging.getLogger("hpm-mcp")
@@ -128,6 +129,24 @@ TOOL_DEFINITIONS = [
             "required": ["text"],
         },
     },
+    {
+        "name": "memory-wiki-find",
+        "description": (
+            "Look up a topic in the compiled knowledge wiki. "
+            "Faster than memory-find for well-known topics. "
+            "Falls back to memory-find if the wiki doesn't cover the topic."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The topic or question to look up",
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -167,6 +186,15 @@ def handle_memory_save(fact: str, tags: str | None = None) -> str:
         conn.close()
 
 
+def handle_memory_wiki_find(query: str) -> str:
+    """Look up a topic in the wiki; fall back to memory-find."""
+    result = wiki_find.cmd_find(query)
+    if result.startswith("__WIKI_FALLTHROUGH__:"):
+        actual_query = result[len("__WIKI_FALLTHROUGH__:"):]
+        return handle_memory_find(actual_query)
+    return result
+
+
 def handle_memory_capture(text: str, tags: str | None = None) -> str:
     from hpm import embed
     """Capture a conversation turn."""
@@ -193,6 +221,7 @@ TOOL_HANDLERS = {
     "memory-find": handle_memory_find,
     "memory-save": handle_memory_save,
     "memory-capture": handle_memory_capture,
+    "memory-wiki-find": handle_memory_wiki_find,
 }
 
 
@@ -235,7 +264,7 @@ def main() -> None:
                 respond(req, error={"code": -32601, "message": f"Unknown method: {method}"})
         except Exception as exc:
             logger.exception("error handling %s", method)
-            respond(req, error={"code": -32603, "message": str(exc)})
+            respond(req, error={"code": -32603, "message": "Internal error"})
 
 
 if __name__ == "__main__":

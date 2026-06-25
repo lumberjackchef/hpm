@@ -212,6 +212,9 @@ def run_sidecar(
     cursor = _load_cursor()
     logger.info("sidecar starting (cursor: %s)", cursor)
 
+    # Phase C: Log wiki index summary on start
+    _log_wiki_summary()
+
     while True:
         try:
             _poll_once(cursor)
@@ -221,6 +224,41 @@ def run_sidecar(
         if once:
             break
         time.sleep(poll_interval)
+
+
+def _log_wiki_summary() -> None:
+    """Log a compact summary of what the wiki covers."""
+    from .wiki import types as wiki_types  # lazy: wiki is optional for sidecar
+
+    wiki_dir = config.WIKI_DIR
+    index_file = wiki_dir / "index.md"
+    if not index_file.exists():
+        logger.info("wiki: not initialized (run `hpm wiki init`)")
+        return
+
+    page_count = 0
+    for _, subdir_fn in wiki_types.SUBDIRS.items():
+        subdir = subdir_fn()
+        if subdir.exists():
+            page_count += len(list(subdir.glob("*.md")))
+
+    # Read index for topic summary
+    topics = []
+    try:
+        import re
+        for line in index_file.read_text().splitlines():
+            m = re.match(r"^- \[(.+?)\]", line)
+            if m:
+                topics.append(m.group(1))
+    except OSError:
+        pass
+
+    if topics:
+        logger.info("wiki: %d pages covering: %s", page_count, ", ".join(topics[:10]))
+        if len(topics) > 10:
+            logger.info("wiki: ... and %d more topics", len(topics) - 10)
+    else:
+        logger.info("wiki: %d pages, run `hpm wiki lint` for details", page_count)
 
 
 def _poll_once(cursor: dict[str, int]) -> None:
