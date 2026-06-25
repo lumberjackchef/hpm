@@ -126,6 +126,7 @@ _LEGACY_HPM_DIR = Path.home() / ".hermes" / "memories"
 
 DEFAULT_DB_PATH = HPM_DIR / "memories.db"
 DAILY_LOG_DIR = HPM_DIR / "daily"
+WIKI_DIR = HPM_DIR / "wiki"
 
 # ── LLM Provider ─────────────────────────────────────────────────────────
 # Set HPM_LLM_PROVIDER to one of:
