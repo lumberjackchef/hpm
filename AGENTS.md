@@ -35,6 +35,7 @@ entirely on-device with sqlite-vec.
 | Decay evaluator | `src/hpm/decay.py` |
 | Wiki layer | `src/hpm/wiki/` |
 | Conflict detector | `src/hpm/conflict.py` |
+| Deferred optimizations | `planned/DEFERRED_OPTIMIZATIONS.md` |
 
 ## Local Contracts
 
