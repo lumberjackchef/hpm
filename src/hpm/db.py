@@ -129,6 +129,7 @@ def init_db(conn: "sqlite3.Connection") -> None:
     conn.executescript(_SCHEMA)
     conn.executescript(_FTS_TRIGGERS)
     migrate_v1(conn)
+    migrate_v2(conn)
     conn.commit()
 
 
@@ -526,7 +527,16 @@ def migrate_v1(conn: "sqlite3.Connection") -> None:
         conn.commit()
 
 
+def migrate_v2(conn: "sqlite3.Connection") -> None:
+    """Add superseded_by column for Phase 4 conflict detection.
 
+    Safe to run repeatedly (ALTER TABLE ADD COLUMN is a no-op if the
+    column already exists — caught by the OperationalError handler).
+    """
+    try:
+        conn.execute("ALTER TABLE memories ADD COLUMN superseded_by TEXT")
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
 
 # ── Decay & Reinforcement ─────────────────────────────────────────────────
