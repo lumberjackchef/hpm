@@ -26,7 +26,7 @@ T = TypeVar("T")
 # WAL + busy timeout from the immutable architecture (req #5)
 _PRAGMAS = """
 PRAGMA journal_mode=WAL;
-PRAGMA busy_timeout=100;
+PRAGMA busy_timeout=1000;
 PRAGMA foreign_keys=ON;
 """
 
@@ -138,8 +138,9 @@ def serialize_vector(vec: npt.NDArray[np.float32]) -> bytes:
 
 
 # ── Write retry ──────────────────────────────────────────────────────────
-# SQLite busy_timeout=100ms (fail fast). Python with_retry handles the full
-# retry cycle with exponential backoff: 100ms → 200ms → 400ms → 800ms → 1600ms.
+# SQLite busy_timeout=1000ms gives SQLite internal time to wait before
+# returning SQLITE_BUSY. Python with_retry handles the full retry cycle
+# with exponential backoff: 100ms → 200ms → 400ms → 800ms → 1600ms.
 
 _MAX_RETRIES = 5
 _BASE_DELAY_MS = 100
