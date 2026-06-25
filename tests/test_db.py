@@ -54,7 +54,7 @@ def test_wal_mode():
 def test_busy_timeout(conn):
     """Verify busy timeout is set."""
     timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
-    assert timeout == 100
+    assert timeout == 1000
 
 
 def test_insert_and_vector_query(conn):
