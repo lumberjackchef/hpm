@@ -246,6 +246,16 @@ All Phase 1, 2, 4, and 5 features are implemented, plus Wiki Layer Phase A:
 - [x] Auto-generated index.md on compile
 - [x] Merge support: update existing pages when recompiled with `--force`
 
+### Wiki Layer (Phase B) ✓
+- [x] `hpm wiki sync` — batch compilation from recent memories via LLM clustering
+- [x] `hpm wiki lint` — health checks: orphans, broken links, stale entries, contradictions, low confidence, large pages, frontmatter validation
+- [x] `hpm wiki lint --fix` — auto-regenerate index.md
+- [x] Dry-run mode for sync
+
+### Wiki Layer (Phase C) ✓
+- [x] Contradiction awareness in `answer.py` — scans wiki for contested pages on the query topic, injects contradiction alert into LLM prompt
+- [x] Sidecar logs wiki index summary on start for agent context awareness
+
 ---
 
 ## Planned Features
@@ -265,9 +275,10 @@ referenced, contradiction-aware pages. An agent calls `memory-wiki-find`
 first — O(1) file read if the topic is known, fall through to Tier 1–3
 if not.
 
-**Status:** Phase A complete (`hpm wiki init`, `compile`, `find`,
-`memory-wiki-find` MCP tool). Phases B (sync, lint) and C (integration)
-planned in `planned/WIKI_LAYER.md`.
+**Status:** All three phases (A, B, C) complete — `hpm wiki init`,
+`compile`, `find`, `sync`, `lint`, `memory-wiki-find` MCP tool,
+contradiction-aware answer synthesis, and sidecar wiki awareness.
+Planned future work covered in `planned/WIKI_LAYER.md`.
 
 ### Conflict Detector
 An LLM-based cron pass that finds contradictory memory entries (same tags

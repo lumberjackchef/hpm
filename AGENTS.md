@@ -80,6 +80,8 @@ hpm dashboard [-o PATH]
 hpm wiki init
 hpm wiki compile <topic> [--force]
 hpm wiki find <query>
+hpm wiki sync [--hours N] [--dry-run]
+hpm wiki lint [--fix]
 
 # MCP server registration
 hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py
