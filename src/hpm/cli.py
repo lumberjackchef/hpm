@@ -11,6 +11,7 @@ import click
 
 from . import answer as answer_module
 from . import config, daily, summarize
+from . import conflict as conflict_module
 from . import dashboard as dashboard_module
 from . import db as db_module
 from . import decay as decay_module
@@ -272,6 +273,30 @@ def dashboard(output: str) -> None:
         conn.close()
         click.echo(f"Dashboard: {path}")
         webbrowser.open(f"file://{path}")
+    except Exception as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+
+
+@click.command()
+@click.option("--run", "do_run", is_flag=True, help="Run conflict detection pass")
+@click.option("--max-pairs", default=10, show_default=True, help="Max candidate pairs to check")
+def conflict(do_run: bool, max_pairs: int) -> None:
+    """Detect contradictory memory entries via LLM judgment."""
+    if not do_run:
+        click.echo("Use --run to execute conflict detection.")
+        return
+    try:
+        conn = db_module.get_connection()
+        db_module.init_db(conn)
+        click.echo("finding candidate pairs...", err=True)
+        summary = conflict_module.run_conflict_detection(conn, max_pairs=max_pairs)
+        parts = [
+            f"checked {summary['checked']} pairs",
+            f"{summary['contradictions']} contradictions found",
+        ]
+        click.echo(" · ".join(parts), err=True)
+        conn.close()
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)

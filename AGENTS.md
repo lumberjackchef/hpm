@@ -34,7 +34,8 @@ entirely on-device with sqlite-vec.
 | Dashboard | `src/hpm/dashboard.py` |
 | Decay evaluator | `src/hpm/decay.py` |
 | Wiki layer | `src/hpm/wiki/` |
-| Future: Conflict detector | `planned/CONFLICT_DETECTOR.md` |
+| Conflict detector | `src/hpm/conflict.py` |
+| Deferred optimizations | `planned/DEFERRED_OPTIMIZATIONS.md` |
 
 ## Local Contracts
 
@@ -76,6 +77,7 @@ hpm answer "<query>" [--limit N] [--no-rerank]
 hpm sidecar [--once] [--poll-interval N]
 hpm status
 hpm decay --run [--spot-check]
+hpm conflict --run [--max-pairs N]
 hpm dashboard [-o PATH]
 hpm wiki init
 hpm wiki compile <topic> [--force]
@@ -122,12 +124,12 @@ Before any code editing in this repository, load the `code-workflow` skill and f
 
 ### Build order
 
-Follow the 5-phase plan in `planned/PI_EXTENSION.md` (Phase 3) and the completed phases 1, 2, 4, 5 in the codebase. Phases are sequential except Phase 4 (cross-agent coherence) may run alongside Phase 3 since dedup is pure database-layer logic.
+Phases 1, 2, 4, and 5 are complete. Phase 3 (Pi Extension) remains.
 
 1. **Phase 1** — Foundation: sqlite-vec + hpm CLI (capture, query, save) + Hermes sidecar
 2. **Phase 2** — Hermes Enhancement: reranker + cited answers + `/memory-find`
-3. **Phase 3** — Pi Extension: TypeScript extension
-4. **Phase 4** — Cross-Agent Coherence: dedup + conflict resolution (parallel with Phase 3)
+3. **Phase 3** — Pi Extension: TypeScript extension *(not started)*
+4. **Phase 4** — Cross-Agent Coherence: dedup + conflict detector *(complete)*
 5. **Phase 5** — Observability: decay evaluator + dashboard + cron
 
 ### Per-commit workflow (Ryan's convention)
