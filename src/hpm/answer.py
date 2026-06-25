@@ -6,8 +6,9 @@ the configured LLM provider for a structured answer with citations.
 Follows the GBrain pattern: answer concisely, cite sources, or say "I don't know"
 if nothing relevant is found.
 
-Checks the wiki for contested pages and injects contradiction awareness
-when relevant (Phase C).
+Checks the wiki's cached contested-page index for contradiction awareness
+(Phase C).  Uses the pre-computed ``contested.json`` cache so every answer
+call is O(1) rather than scanning the entire wiki file tree.
 """
 
 from __future__ import annotations
@@ -21,9 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 def _check_wiki_contradictions(query: str) -> str:
-    """Scan wiki for a contested page relevant to *query*.
+    """Scan a cached contested-page index for a title matching *query*.
 
     Returns a formatted contradiction note or empty string.
+    Uses the pre-built ``~/.hpm/wiki/contested.json`` cache so this is O(1)
+    per answer call rather than scanning the entire wiki file tree.
     """
     try:
         from .wiki import types as wiki_types
@@ -32,30 +35,29 @@ def _check_wiki_contradictions(query: str) -> str:
         if not wiki_dir.exists():
             return ""
 
-        for page_type, subdir_fn in wiki_types.SUBDIRS.items():
-            subdir = subdir_fn()
-            if not subdir.exists():
-                continue
-            for fpath in subdir.iterdir():
-                if fpath.suffix != ".md":
-                    continue
-                text = fpath.read_text()
-                meta, body = wiki_types.parse_frontmatter(text)
-                if meta.get("contested") not in (True, "true"):
-                    continue
+        contested = wiki_types.read_contested_index()
+        if not contested:
+            return ""
 
-                # Check if query matches the page title
-                title = str(meta.get("title", "")).lower()
-                if any(word.lower() in title for word in query.split()):
-                    contradictions = meta.get("contradictions", [])
-                    return (
-                        "The wiki has a contested page about this topic "
-                        f"(\"{meta.get('title', '')}\"). "
-                        f"Conflicts: {', '.join(contradictions) if contradictions else 'unlisted'}."
-                    )
+        query_words = [w.lower() for w in query.split() if len(w) > 1]
+        if not query_words:
+            return ""
+
+        for slug, info in contested.items():
+            title = str(info.get("title", slug)).lower()
+            # Match if any meaningful query word appears in the title
+            if any(word in title for word in query_words):
+                contradictions = info.get("contradictions", [])
+                return (
+                    "The wiki has a contested page about this topic "
+                    f"(\"{info.get('title', slug)}\"). "
+                    f"Conflicts: {', '.join(contradictions) if contradictions else 'unlisted'}."
+                )
         return ""
     except Exception:
+        logger.exception("wiki contradiction check failed")
         return ""
+
 
 ANSWER_SYSTEM_PROMPT = (
     "You are a precise memory recall assistant. You have been given a user query "
@@ -111,7 +113,7 @@ def synthesize_answer(
 
     user_prompt = f"## User Query\n{query}\n\n## Memory Entries\n{memory_context}"
 
-    # Phase C: Wiki contradiction check
+    # Phase C: Wiki contradiction check (uses pre-computed contested.json)
     wiki_note = _check_wiki_contradictions(query)
     if wiki_note:
         user_prompt += f"\n\n## Wiki Contradiction Alert\n{wiki_note}"

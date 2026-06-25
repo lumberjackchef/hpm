@@ -21,15 +21,19 @@ def cmd_find(query: str) -> str:
 
     index_text = idx_path.read_text()
 
-    # Search index for matching entries (simple keyword match on title line)
+    # Search index for matching entries (keyword match on word boundaries)
     matches: list[tuple[str, str, str]] = []  # (slug, title, page_type)
+    query_words = [w.lower() for w in query.split() if len(w) > 1]
+    if not query_words:
+        return _fallback(query)
+
     for line in index_text.splitlines():
         # Match markdown links in the index: [Title](entities/slug.md)
         m = re.match(r"^- \[(.+?)\]\((.+?)/(.+?)\.md\)", line)
         if m:
             title = m.group(1).lower()
-            if all(word.lower() in title for word in query.split()):
-                page_type = m.group(2).rstrip("s")  # "entities" → "entity"
+            if all(w in title for w in query_words):
+                page_type = m.group(2).rstrip("s")  # "entities" -> "entity"
                 slug = m.group(3)
                 matches.append((slug, m.group(1), page_type))
 

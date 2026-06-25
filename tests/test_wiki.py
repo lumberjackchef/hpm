@@ -326,10 +326,6 @@ class TestWikiCompile:
             mock.patch("hpm.wiki.compile.db_module.init_db"),
             mock.patch("hpm.wiki.compile.db_module.query_hybrid",
                        return_value=[{"id": "abc", "content": "test"}]),
-            mock.patch(
-                "hpm.wiki.compile.answer_module.synthesize_answer",
-                return_value="answer",
-            ),
         ):
             wiki_compile.cmd_compile("test topic")
 

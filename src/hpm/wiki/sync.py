@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 
 SYNC_CLUSTER_SYSTEM_PROMPT = """You are a memory clustering assistant.
 
-Given a list of recent memory entries (each with content, tags, and timestamp),
-group them into topics suitable for wiki compilation. Each topic should be
-a distinct subject that would benefit from its own wiki page.
+Given a list of recent memory entries (each with truncated content at 200
+characters, tags, and timestamp), group them into topics suitable for wiki
+compilation. Each topic should be a distinct subject that would benefit from
+its own wiki page.
 
 Output a JSON array of objects:
 [
@@ -103,7 +104,7 @@ def cmd_sync(hours: int = 24, dry_run: bool = False) -> str:
 
             # Check if page already exists
             existing_meta, existing_content, existing_path = (
-                wiki_compile._read_existing_page(slug)
+                wiki_compile.read_existing_page(slug)
             )
 
             if dry_run:

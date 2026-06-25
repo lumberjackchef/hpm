@@ -17,7 +17,6 @@ from typing import Any
 
 from . import config, daily, summarize
 from . import db as db_module
-from .wiki import types as wiki_types
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +228,8 @@ def run_sidecar(
 
 def _log_wiki_summary() -> None:
     """Log a compact summary of what the wiki covers."""
+    from .wiki import types as wiki_types  # lazy: wiki is optional for sidecar
+
     wiki_dir = config.WIKI_DIR
     index_file = wiki_dir / "index.md"
     if not index_file.exists():

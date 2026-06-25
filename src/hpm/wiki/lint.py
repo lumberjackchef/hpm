@@ -34,7 +34,7 @@ def cmd_lint(fix: bool = False) -> list[dict[str, str]]:
         if not subdir.exists():
             continue
         for fpath in sorted(subdir.iterdir()):
-            if fpath.suffix != ".md":
+            if fpath.suffix != ".md" or fpath.is_symlink():
                 continue
             pages.append((page_type, fpath.stem, fpath))
 
@@ -57,7 +57,7 @@ def cmd_lint(fix: bool = False) -> list[dict[str, str]]:
         }
 
     # 1. Frontmatter validation
-    required_fields = ["title", "type", "confidence", "contested"]
+    required_fields = ["title", "type", "confidence", "contested", "created", "updated"]
     for slug, data in page_data.items():
         meta = data["meta"]
         for field in required_fields:
@@ -67,7 +67,7 @@ def cmd_lint(fix: bool = False) -> list[dict[str, str]]:
                     "message": f"[{slug}] Missing frontmatter field: {field}",
                 })
 
-        if "created" in meta:
+        if meta.get("created"):
             try:
                 date.fromisoformat(str(meta["created"]))
             except (ValueError, TypeError):
@@ -104,37 +104,38 @@ def cmd_lint(fix: bool = False) -> list[dict[str, str]]:
     else:
         issues.append({"severity": "warning", "message": "No index.md found. Run `hpm wiki init`."})
 
-    # 3. Orphan pages (zero inbound [[wikilinks]])
-    all_links: set[str] = set()
+    # 3. Wikilink graph — single-pass build
+    # {slug -> {linked_to: set of slugs, links_to: set of slugs}}
+    wikilink_graph: dict[str, dict[str, set[str]]] = {}
+    for slug in page_data:
+        wikilink_graph[slug] = {"linked_to": set(), "links_to": set()}
+
     for slug, data in page_data.items():
         for link_match in re.finditer(r"\[\[(.+?)\]\]", data["text"]):
-            link_target = wiki_types.slugify(link_match.group(1))
-            if link_target in page_data:
-                all_links.add(link_target)
+            link_text = link_match.group(1)
+            # Try direct slug match first; fall back to slugified version
+            target = link_text
+            if target not in page_data:
+                target = wiki_types.slugify(link_text)
+            if target in page_data:
+                wikilink_graph[slug]["links_to"].add(target)
+                wikilink_graph[target]["linked_to"].add(slug)
             else:
                 issues.append({
                     "severity": "warning",
                     "message": (
                         f"[{slug}] Broken [[wikilink]] to"
-                        f" '{link_match.group(1)}' — page not found"
+                        f" '{link_text}' — page not found"
                     ),
                 })
 
+    # Orphan pages (zero inbound wikilinks from other pages)
     for slug in page_data:
-        if slug not in all_links:
-            # Check if any other page links to it
-            linked_to = False
-            for other_slug, other_data in page_data.items():
-                if other_slug == slug:
-                    continue
-                if slug in other_data["text"]:
-                    linked_to = True
-                    break
-            if not linked_to:
-                issues.append({
-                    "severity": "info",
-                    "message": f"[{slug}] Orphan page — no inbound [[wikilinks]]",
-                })
+        if not wikilink_graph[slug]["linked_to"]:
+            issues.append({
+                "severity": "info",
+                "message": f"[{slug}] Orphan page — no inbound [[wikilinks]]",
+            })
 
     # 4. Contradictions
     for slug, data in page_data.items():
@@ -187,38 +188,12 @@ def cmd_lint(fix: bool = False) -> list[dict[str, str]]:
             except (ValueError, TypeError):
                 pass
 
-    # --- Auto-fix: regenerate index ---
+    # --- Auto-fix: regenerate index and contested index ---
     if fix:
-        if index_path.exists() or not issues:
-            _regenerate_index(page_data)
-            issues.append({"severity": "info", "message": "index.md regenerated."})
+        wiki_types.rebuild_index()
+        issues.append({"severity": "info", "message": "index.md and contested.json regenerated."})
 
     return issues
-
-
-def _regenerate_index(page_data: dict[str, dict[str, Any]]) -> None:
-    """Regenerate index.md from all wiki pages."""
-    root = config.WIKI_DIR
-    lines = ["# Wiki Index\n"]
-
-    for page_type in ("entity", "concept", "comparison", "query"):
-        subdir = wiki_types.subdir_for(page_type)
-        if not subdir.exists():
-            continue
-        entries: list[tuple[str, str]] = []
-        for slug, data in page_data.items():
-            if data["type"] == page_type:
-                title = data["meta"].get("title", slug)
-                entries.append((slug, title))
-        if entries:
-            heading = page_type[0].upper() + page_type[1:] + "s"
-            lines.append(f"## {heading}\n")
-            for slug, title in sorted(entries):
-                rel = f"{page_type}s/{slug}.md"
-                lines.append(f"- [{title}]({rel})")
-            lines.append("")
-
-    (root / "index.md").write_text("\n".join(lines))
 
 
 @click.command(name="lint")

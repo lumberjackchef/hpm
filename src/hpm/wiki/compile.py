@@ -9,7 +9,6 @@ from typing import Any
 
 import click
 
-from .. import answer as answer_module
 from .. import db as db_module
 from .. import embed, llm
 from . import types as wiki_types
@@ -21,7 +20,6 @@ COMPILE_SYSTEM_PROMPT = """You are a knowledge compiler for a personal AI agent 
 You receive:
 - A user's topic/query
 - A set of relevant memory entries (with timestamps, sources, tags)
-- A synthesized answer about that topic (if available)
 
 Write a structured wiki page in Markdown with YAML frontmatter.
 The frontmatter must include: title, created, updated, type, tags, sources, confidence, contested.
@@ -43,19 +41,20 @@ You receive:
 - New memory entries that may add to or contradict the existing content
 
 Update the page:
-1. If new info adds detail → incorporate it, update 'updated' date
-2. If new info contradicts existing content → note both positions with dates
+1. If new info adds detail -> incorporate it, update 'updated' date
+2. If new info contradicts existing content -> note both positions with dates
    and sources, set contested: true, add to contradictions list
-3. If new info is redundant → leave the page unchanged
+3. If new info is redundant -> leave the page unchanged
 4. Keep the frontmatter confidence field accurate
 
 Output the FULL updated wiki page (frontmatter + body). No explanations."""
 
 
-def _read_existing_page(slug: str) -> tuple[dict[str, str] | None, str, Path]:
+def read_existing_page(slug: str) -> tuple[dict[str, str] | None, str, Path]:
     """Find an existing wiki page by slug.
 
     Returns ``(metadata, full_content, path)`` or ``(None, '', path)``.
+    Made public so sync.py and other modules can use it.
     """
     for _, subdir_fn in wiki_types.SUBDIRS.items():
         candidate = subdir_fn() / f"{slug}.md"
@@ -104,7 +103,7 @@ Relevant memories:
     )
 
 
-def cmd_compile(query: str, tags: list[str] | None = None, force: bool = False) -> str:
+def cmd_compile(query: str, force: bool = False) -> str:
     """Run the full recall pipeline and compile a wiki page.
 
     Returns the path to the written page or a status message.
@@ -114,7 +113,7 @@ def cmd_compile(query: str, tags: list[str] | None = None, force: bool = False) 
     slug = wiki_types.slugify(query)
 
     # Check existing page
-    existing_meta, existing_content, existing_path = _read_existing_page(slug)
+    existing_meta, existing_content, existing_path = read_existing_page(slug)
     if existing_content and not force:
         return (
             f"Page already exists at {existing_path}. "
@@ -140,14 +139,7 @@ def cmd_compile(query: str, tags: list[str] | None = None, force: bool = False) 
             results = rerank.rerank(query, results, keep=10)
         rerank.unload()
 
-        # Also get a synthesized answer for context (discarded — we use the
-        # raw memory entries for compilation, but the answer shows the LLM
-        # what a good response looks like)
-        if results:
-            answer_module.synthesize_answer(query, results)
-
-
-        # Compile the page
+        # Compile the page via LLM
         existing = existing_content if force else None
         page_content = _build_page_from_memories(query, results, existing=existing)
 
@@ -160,7 +152,7 @@ def cmd_compile(query: str, tags: list[str] | None = None, force: bool = False) 
         subdir.mkdir(parents=True, exist_ok=True)
         page_path = subdir / f"{slug}.md"
 
-        # Ensure proper closing frontmatter
+        # Ensure proper frontmatter
         if not page_content.startswith("---"):
             page_content = wiki_types.make_frontmatter(
                 title=title,
@@ -168,46 +160,15 @@ def cmd_compile(query: str, tags: list[str] | None = None, force: bool = False) 
                 sources=[f"memory:{r.get('id', '')[:8]}" for r in results[:5]] if results else None,
             ) + page_content
 
-        page_path.write_text(page_content)
-        _update_index()
+        # Atomic write
+        wiki_types.atomic_write(page_path, page_content)
+        wiki_types.rebuild_index()
         _append_log(f"Compiled page '{title}' ({slug}) type={page_type} at {page_path}")
 
         return f"Wiki page written: {page_path}"
 
     finally:
         conn.close()
-
-
-def _update_index() -> None:
-    """Regenerate index.md from all wiki pages."""
-    from .. import config as cfg
-
-    index = cfg.WIKI_DIR / "index.md"
-    lines = ["# Wiki Index\n"]
-
-    for page_type, subdir_fn in wiki_types.SUBDIRS.items():
-        subdir = subdir_fn()
-        if not subdir.exists():
-            continue
-        entries: list[tuple[str, str]] = []  # (slug, title)
-        for fpath in sorted(subdir.iterdir()):
-            if fpath.suffix != ".md":
-                continue
-            text = fpath.read_text()
-            meta, _ = wiki_types.parse_frontmatter(text)
-            title = meta.get("title", fpath.stem)
-            slug = fpath.stem
-            entries.append((slug, title))
-
-        if entries:
-            heading = page_type[0].upper() + page_type[1:] + "s"
-            lines.append(f"## {heading}\n")
-            for slug, title in entries:
-                rel = f"{page_type}s/{slug}.md"
-                lines.append(f"- [{title}]({rel})")
-            lines.append("")
-
-    index.write_text("\n".join(lines))
 
 
 def _append_log(entry: str) -> None:
@@ -219,12 +180,11 @@ def _append_log(entry: str) -> None:
 
 @click.command(name="compile")
 @click.argument("query")
-@click.option("--tags", "-t", multiple=True, help="Filter memories by tags")
 @click.option("--force", is_flag=True, help="Recompile even if page exists")
-def compile_cli(query: str, tags: tuple[str, ...], force: bool) -> None:
+def compile_cli(query: str, force: bool) -> None:
     """Compile a wiki page from the memory store on a topic."""
     try:
-        result = cmd_compile(query, tags=list(tags) if tags else None, force=force)
+        result = cmd_compile(query, force=force)
         click.echo(result)
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)

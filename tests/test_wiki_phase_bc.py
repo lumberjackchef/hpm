@@ -37,7 +37,10 @@ def _write_page(wiki_root: Path, page_type: str, slug: str, title: str,
                 body: str = "Body content.",
                 wikilinks: list[str] | None = None,
                 line_count: int | None = None) -> Path:
-    """Create a wiki page for testing."""
+    """Create a wiki page for testing.
+
+    Uses comma-separated tags/contradictions to match the production format.
+    """
     from hpm.wiki import types as wt
 
     frontmatter_parts = [
@@ -48,11 +51,11 @@ def _write_page(wiki_root: Path, page_type: str, slug: str, title: str,
         f"type: {page_type}",
     ]
     if tags:
-        frontmatter_parts.append(f"tags: [{' '.join(tags)}]")
+        frontmatter_parts.append(f"tags: [{', '.join(tags)}]")
     frontmatter_parts.append(f"confidence: {confidence}")
     frontmatter_parts.append(f"contested: {'true' if contested else 'false'}")
     if contradictions:
-        frontmatter_parts.append(f"contradictions: [{' '.join(contradictions)}]")
+        frontmatter_parts.append(f"contradictions: [{', '.join(contradictions)}]")
     frontmatter_parts.append("---\n")
 
     if wikilinks:
@@ -110,6 +113,16 @@ class TestWikiLint:
         frontmatter_issues = [i for i in issues if "Missing frontmatter" in i["message"]]
         assert len(frontmatter_issues) >= 1
 
+    def test_missing_created(self, tmp_wiki):
+        """created field is now in required_fields - verify it's flagged."""
+        # Write a page with no 'created' in frontmatter
+        path = tmp_wiki / "concepts" / "no-created.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("---\ntitle: No Created\ntype: concept\nconfidence: high\ncontested: false\n---\n\nBody")
+        _write_index(tmp_wiki, [("concept", "no-created", "No Created")])
+        issues = wiki_lint.cmd_lint()
+        assert any("created" in i["message"] for i in issues)
+
     def test_missing_from_index(self, tmp_wiki):
         _write_page(tmp_wiki, "concept", "orphan", "Orphan Page")
         # Write an index that doesn't include the page
@@ -154,8 +167,9 @@ class TestWikiLint:
         issues = wiki_lint.cmd_lint()
         assert any("Large page" in i["message"] for i in issues)
 
-    def test_fix_regenerates_index(self, tmp_wiki):
-        _write_page(tmp_wiki, "concept", "my-page", "My Page")
+    def test_fix_regenerates_index_and_contested(self, tmp_wiki):
+        _write_page(tmp_wiki, "concept", "my-page", "My Page",
+                     contested=True, contradictions=["old-page"])
         # Start with empty index
         _write_index(tmp_wiki, [])
         issues = wiki_lint.cmd_lint(fix=True)
@@ -165,6 +179,11 @@ class TestWikiLint:
         content = index_path.read_text()
         assert "My Page" in content
         assert "concepts/my-page.md" in content
+        # Contested index should also be regenerated
+        contested_path = tmp_wiki / "contested.json"
+        assert contested_path.exists()
+        contested = json.loads(contested_path.read_text())
+        assert "my-page" in contested
 
     def test_orphan_page(self, tmp_wiki):
         _write_page(tmp_wiki, "concept", "orphan", "Orphan Page")
@@ -172,6 +191,18 @@ class TestWikiLint:
         issues = wiki_lint.cmd_lint()
         orphan_issues = [i for i in issues if "Orphan" in i["message"]]
         assert len(orphan_issues) >= 1
+
+    def test_wikilink_graph_no_false_orphan(self, tmp_wiki):
+        """Page linked by another should not appear as orphan."""
+        _write_page(tmp_wiki, "concept", "source", "Source Page",
+                     wikilinks=["target-page"])
+        _write_page(tmp_wiki, "concept", "target-page", "Target Page")
+        _write_index(tmp_wiki, [("concept", "source", "Source Page"),
+                                 ("concept", "target-page", "Target Page")])
+        issues = wiki_lint.cmd_lint()
+        # Target page should NOT be orphan
+        target_orphan = [i for i in issues if "target-page" in i["message"] and "Orphan" in i["message"]]
+        assert len(target_orphan) == 0
 
 
 # ── Wiki Sync ───────────────────────────────────────────────────────────────
@@ -238,6 +269,11 @@ class TestContradictionAwareness:
     def test_check_contested_match(self, tmp_wiki):
         _write_page(tmp_wiki, "concept", "payment", "Payment Decision",
                      contested=True, contradictions=["old-payment"])
+        # Write the contested index (this is what the real code reads)
+        from hpm.wiki import types as wt
+        wt.write_contested_index([
+            ("payment", "Payment Decision", True, ["old-payment"])
+        ])
         with mock.patch("hpm.config.WIKI_DIR", tmp_wiki):
             from hpm.answer import _check_wiki_contradictions
             result = _check_wiki_contradictions("payment")
@@ -248,7 +284,36 @@ class TestContradictionAwareness:
     def test_check_no_match_for_different_query(self, tmp_wiki):
         _write_page(tmp_wiki, "concept", "payment", "Payment Decision",
                      contested=True)
+        from hpm.wiki import types as wt
+        wt.write_contested_index([
+            ("payment", "Payment Decision", True, [])
+        ])
         with mock.patch("hpm.config.WIKI_DIR", tmp_wiki):
             from hpm.answer import _check_wiki_contradictions
             result = _check_wiki_contradictions("gardening")
             assert result == ""
+
+
+# ── MCP Handler ──────────────────────────────────────────────────────────
+
+
+class TestMCPWikiFind:
+    def test_mcp_handler_fallback_on_no_wiki(self):
+        """MCP memory-wiki-find falls back to memory-find when wiki is empty."""
+        from hpm.wiki import find as wiki_find
+
+        with mock.patch.object(wiki_find, "cmd_find", return_value="__WIKI_FALLTHROUGH__:test query"):
+            from hpm_mcp_server import handle_memory_wiki_find
+            with mock.patch("hpm_mcp_server.handle_memory_find", return_value="fallback answer"):
+                result = handle_memory_wiki_find("test query")
+                assert result == "fallback answer"
+
+    def test_mcp_handler_returns_wiki_page(self):
+        """MCP memory-wiki-find returns wiki content when found."""
+        from hpm.wiki import find as wiki_find
+
+        with mock.patch.object(wiki_find, "cmd_find",
+                                return_value="## Wiki Page\n\nSome content\n\n_Source: wiki page_"):
+            from hpm_mcp_server import handle_memory_wiki_find
+            result = handle_memory_wiki_find("test query")
+            assert "Wiki Page" in result

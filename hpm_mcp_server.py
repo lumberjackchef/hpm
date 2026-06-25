@@ -264,7 +264,7 @@ def main() -> None:
                 respond(req, error={"code": -32601, "message": f"Unknown method: {method}"})
         except Exception as exc:
             logger.exception("error handling %s", method)
-            respond(req, error={"code": -32603, "message": str(exc)})
+            respond(req, error={"code": -32603, "message": "Internal error"})
 
 
 if __name__ == "__main__":
