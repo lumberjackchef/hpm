@@ -192,6 +192,26 @@ class TestWikiLint:
         orphan_issues = [i for i in issues if "Orphan" in i["message"]]
         assert len(orphan_issues) >= 1
 
+    def test_plural_entity_dir_in_index(self, tmp_wiki):
+        """Entity pages should produce 'entities/' paths, not 'entitys/'."""
+        from hpm.wiki import types as wt
+        _write_page(tmp_wiki, "entity", "john-doe", "John Doe")
+        wt.rebuild_index()
+        idx = (tmp_wiki / "index.md").read_text()
+        assert "entitys/" not in idx, "Should not have 'entitys/' path"
+        assert "entities/" in idx, "Should have correct 'entities/' path"
+        assert "## Entities" in idx
+
+    def test_plural_query_dir_in_index(self, tmp_wiki):
+        """Query pages should produce 'queries/' paths, not 'querys/'."""
+        from hpm.wiki import types as wt
+        _write_page(tmp_wiki, "query", "my-query", "My Query")
+        wt.rebuild_index()
+        idx = (tmp_wiki / "index.md").read_text()
+        assert "querys/" not in idx, "Should not have 'querys/' path"
+        assert "queries/" in idx, "Should have correct 'queries/' path"
+        assert "## Queries" in idx
+
     def test_wikilink_graph_no_false_orphan(self, tmp_wiki):
         """Page linked by another should not appear as orphan."""
         _write_page(tmp_wiki, "concept", "source", "Source Page",

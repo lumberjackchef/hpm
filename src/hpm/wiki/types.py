@@ -40,6 +40,11 @@ SUBDIRS = {
     "query": queries_dir,
 }
 
+# Correct plural directory names derived from SUBDIRS functions
+PLURAL_DIRS: dict[str, str] = {
+    ptype: fn().name for ptype, fn in SUBDIRS.items()
+}
+
 
 def subdir_for(page_type: str) -> Path:
     fn = SUBDIRS.get(page_type, concepts_dir)
@@ -323,10 +328,11 @@ def rebuild_index(pages: list[PageInfo] | None = None) -> None:
         entries = by_type.get(page_type)
         if not entries:
             continue
-        heading = page_type[0].upper() + page_type[1:] + "s"
+        dir_name = PLURAL_DIRS.get(page_type, page_type + "s")
+        heading = dir_name[0].upper() + dir_name[1:]
         lines.append(f"## {heading}\n")
         for slug, title in sorted(entries):
-            rel = f"{page_type}s/{slug}.md"
+            rel = f"{dir_name}/{slug}.md"
             lines.append(f"- [{title}]({rel})")
         lines.append("")
 

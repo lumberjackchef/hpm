@@ -27,13 +27,18 @@ def cmd_find(query: str) -> str:
     if not query_words:
         return _fallback(query)
 
+    # Reverse mapping from plural directory names to singular page types
+    dir_to_type = {
+        fn().name: ptype for ptype, fn in wiki_types.SUBDIRS.items()
+    }
+
     for line in index_text.splitlines():
         # Match markdown links in the index: [Title](entities/slug.md)
         m = re.match(r"^- \[(.+?)\]\((.+?)/(.+?)\.md\)", line)
         if m:
             title = m.group(1).lower()
             if all(w in title for w in query_words):
-                page_type = m.group(2).rstrip("s")  # "entities" -> "entity"
+                page_type = dir_to_type.get(m.group(2), "concept")
                 slug = m.group(3)
                 matches.append((slug, m.group(1), page_type))
 
