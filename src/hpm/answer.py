@@ -5,6 +5,9 @@ the configured LLM provider for a structured answer with citations.
 
 Follows the GBrain pattern: answer concisely, cite sources, or say "I don't know"
 if nothing relevant is found.
+
+Checks the wiki for contested pages and injects contradiction awareness
+when relevant (Phase C).
 """
 
 from __future__ import annotations
@@ -12,9 +15,47 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from . import llm
+from . import config, llm
 
 logger = logging.getLogger(__name__)
+
+
+def _check_wiki_contradictions(query: str) -> str:
+    """Scan wiki for a contested page relevant to *query*.
+
+    Returns a formatted contradiction note or empty string.
+    """
+    try:
+        from .wiki import types as wiki_types
+
+        wiki_dir = config.WIKI_DIR
+        if not wiki_dir.exists():
+            return ""
+
+        for page_type, subdir_fn in wiki_types.SUBDIRS.items():
+            subdir = subdir_fn()
+            if not subdir.exists():
+                continue
+            for fpath in subdir.iterdir():
+                if fpath.suffix != ".md":
+                    continue
+                text = fpath.read_text()
+                meta, body = wiki_types.parse_frontmatter(text)
+                if meta.get("contested") not in (True, "true"):
+                    continue
+
+                # Check if query matches the page title
+                title = str(meta.get("title", "")).lower()
+                if any(word.lower() in title for word in query.split()):
+                    contradictions = meta.get("contradictions", [])
+                    return (
+                        "The wiki has a contested page about this topic "
+                        f"(\"{meta.get('title', '')}\"). "
+                        f"Conflicts: {', '.join(contradictions) if contradictions else 'unlisted'}."
+                    )
+        return ""
+    except Exception:
+        return ""
 
 ANSWER_SYSTEM_PROMPT = (
     "You are a precise memory recall assistant. You have been given a user query "
@@ -69,6 +110,11 @@ def synthesize_answer(
     memory_context = "\n\n".join(memory_context_lines)
 
     user_prompt = f"## User Query\n{query}\n\n## Memory Entries\n{memory_context}"
+
+    # Phase C: Wiki contradiction check
+    wiki_note = _check_wiki_contradictions(query)
+    if wiki_note:
+        user_prompt += f"\n\n## Wiki Contradiction Alert\n{wiki_note}"
 
     logger.info("synthesizing answer for query=%r with %d entries", query[:50], len(results))
     return llm.complete(
