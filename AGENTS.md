@@ -44,7 +44,7 @@ entirely on-device with sqlite-vec.
 2. **Multi-tier recall** — Tier 0 (injected context) → Tier 1 (hybrid vector + BM25 search) → Tier 2 (cross-encoder reranker) → Tier 3 (cited-answer synthesis via LLM).
 3. **Immediate embedding** — Every captured turn is vector-embedded immediately (~20ms with BGE-small). No batch deferral. Memories must be queryable within seconds of capture.
 4. **Shared CLI bridge** — Both Hermes and Pi communicate with the vector store through the `hpm` CLI. No agent-specific code in the storage layer.
-5. **sqite-vec with WAL mode** — `PRAGMA journal_mode=WAL;`, `PRAGMA busy_timeout=5000;`, write retry with exponential backoff (3 attempts, 50ms base). Required from day one for concurrent access (Hermes sidecar, Pi extension, cron evaluator).
+5. **sqite-vec with WAL mode** — `PRAGMA journal_mode=WAL;`, `PRAGMA busy_timeout=1000;`, write retry with exponential backoff (5 attempts, 100ms base, up to 1600ms). Required from day one for concurrent access (Hermes sidecar, Pi extension, cron evaluator).
 6. **Local embeddings** — BGE-small-en-v1.5 (384d) via fastembed (ONNX). On-device CPU, zero API cost, ~3ms per embedding.
 7. **Cross-encoder reranker** — `cross-encoder/ms-marco-MiniLM-L-6-v2` for Tier 2. Loaded transiently on query (~200 MB spike, unloads after). Requires `sentence-transformers` (optional dep: `pip install hpm[reranker]`).
 8. **Summarization via configured LLM provider** — Set by `HPM_LLM_PROVIDER` env var. Supports OpenCode Go, Anthropic, OpenAI, and OpenRouter. No hardcoded endpoints.
