@@ -159,7 +159,7 @@ class TestRunConflictDetection:
 
 class TestAnswerIntegration:
     def test_superseded_note_in_answer(self, conn):
-        """When a memory entry has superseded_by, answer synthesis includes a conflict note."""
+        """When a memory entry has superseded_by, the prompt sent to the LLM includes a conflict note."""
         old_id = _insert(conn, "Payment processor is Paddle", tags=["topic:payments"], timestamp="2026-01-01T00:00:00Z")
         new_id = _insert(conn, "Payment processor is Stripe", tags=["topic:payments"], timestamp="2026-06-01T00:00:00Z")
         conn.execute("UPDATE memories SET superseded_by = ? WHERE id = ?", (new_id, old_id))
@@ -168,11 +168,11 @@ class TestAnswerIntegration:
         results = db.query_keyword(conn, "payment processor", limit=5)
         assert len(results) == 2  # both entries exist
 
-        mock_response = "The payment provider is Stripe.\n\nConfidence: High"
-        with patch("hpm.answer.llm.complete", return_value=mock_response):
-            answer_text = answer.synthesize_answer("payment provider", results)
-
-        assert "superseded" in answer_text.lower() or "Stripe" in answer_text
+        with patch("hpm.answer.llm.complete", return_value="Answer.") as mock:
+            answer.synthesize_answer("payment provider", results)
+            user_content = mock.call_args[1]["messages"][0]["content"]
+            assert "superseded by" in user_content.lower(), \
+                "superseded note should appear in the LLM prompt"
 
     def test_no_superseded_note_when_not_applicable(self, conn):
         _insert(conn, "Weather in Austin", tags=["topic:weather"], timestamp="2026-06-01T00:00:00Z")
@@ -185,6 +185,7 @@ class TestAnswerIntegration:
 
 class TestSchemaMigration:
     def test_migrate_v2_adds_column(self):
+        """migrate_v2 adds superseded_by column to a pre-existing schema."""
         c = db.get_connection(":memory:")
         c.execute("""
             CREATE TABLE memories (
@@ -193,22 +194,11 @@ class TestSchemaMigration:
                 decay_score REAL, access_scope TEXT, last_accessed TEXT
             )
         """)
-        c.close()
-        # Re-open and init — should add the column
-        c2 = db.get_connection(":memory:")
-        # Recreate the same schema manually then migrate
-        c2.execute("""
-            CREATE TABLE memories (
-                id TEXT PRIMARY KEY, content TEXT, source TEXT,
-                session_id TEXT, timestamp TEXT, tags TEXT,
-                decay_score REAL, access_scope TEXT, last_accessed TEXT
-            )
-        """)
-        db.migrate_v2(c2)
+        db.migrate_v2(c)
         # Verify column exists
-        cols = [row[1] for row in c2.execute("PRAGMA table_info(memories)").fetchall()]
+        cols = [row[1] for row in c.execute("PRAGMA table_info(memories)").fetchall()]
         assert "superseded_by" in cols
-        c2.close()
+        c.close()
 
     def test_migrate_v2_idempotent(self, conn):
         # conn already has the schema via init_db

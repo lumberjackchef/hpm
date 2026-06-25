@@ -291,11 +291,11 @@ def conflict(do_run: bool, max_pairs: int) -> None:
         db_module.init_db(conn)
         click.echo("finding candidate pairs...", err=True)
         summary = conflict_module.run_conflict_detection(conn, max_pairs=max_pairs)
-        click.echo(
-            f"checked {summary['checked']} pairs, "
+        parts = [
+            f"checked {summary['checked']} pairs",
             f"{summary['contradictions']} contradictions found",
-            err=True,
-        )
+        ]
+        click.echo(" · ".join(parts), err=True)
         conn.close()
     except Exception as exc:
         click.echo(f"error: {exc}", err=True)
