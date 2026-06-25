@@ -140,7 +140,7 @@ def serialize_vector(vec: npt.NDArray[np.float32]) -> bytes:
 # ── Write retry ──────────────────────────────────────────────────────────
 # SQLite busy_timeout=1000ms gives SQLite internal time to wait before
 # returning SQLITE_BUSY. Python with_retry handles the full retry cycle
-# with exponential backoff: 100ms → 200ms → 400ms → 800ms → 1600ms.
+# with exponential backoff: 100ms → 200ms → 400ms → 800ms.
 
 _MAX_RETRIES = 5
 _BASE_DELAY_MS = 100
