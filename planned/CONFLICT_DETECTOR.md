@@ -1,6 +1,10 @@
 # LLM-Based Conflict Detector
 
-A planned feature to detect contradictory memory entries using LLM judgment and mark the older one as outdated.
+> **Status: Implemented** — Phase 4 is complete. See `src/hpm/conflict.py` and
+> `tests/test_conflict.py` for the current implementation.
+
+A module to detect contradictory memory entries using LLM judgment and mark
+the older one as outdated.
 
 ## Motivation
 
@@ -33,7 +37,9 @@ Periodic cron pass (alongside the spot-check):
 
 ## Schema
 
-The `superseded_by TEXT` column already exists in the schema (added during Phase 4). It's currently unused and can be re-activated by this module.
+The `superseded_by TEXT` column exists in the schema (added by ``migrate_v2``
+in ``db.py``). It's managed by the conflict detector module and checked by
+``answer.py`` during cited-answer synthesis.
 
 ## Cited-Answer Integration
 
