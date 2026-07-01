@@ -255,6 +255,7 @@ All Phase 1, 2, 4, and 5 features are implemented, plus Wiki Layer Phase A:
 ### Wiki Layer (Phase C) ✓
 - [x] Contradiction awareness in `answer.py` — scans wiki for contested pages on the query topic, injects contradiction alert into LLM prompt
 - [x] Sidecar logs wiki index summary on start for agent context awareness
+- [x] Git tracking — `~/.hpm/wiki/` is a git repo with auto-commit on every compile/sync/lint --fix; `hpm wiki git <args>` pass-through for push/pull/log
 
 ---
 
@@ -277,7 +278,8 @@ if not.
 
 **Status:** All three phases (A, B, C) complete — `hpm wiki init`,
 `compile`, `find`, `sync`, `lint`, `memory-wiki-find` MCP tool,
-contradiction-aware answer synthesis, and sidecar wiki awareness.
+contradiction-aware answer synthesis, sidecar wiki awareness, and
+git-tracked wiki with auto-commit.
 Planned future work covered in `planned/WIKI_LAYER.md`.
 
 ### Conflict Detector

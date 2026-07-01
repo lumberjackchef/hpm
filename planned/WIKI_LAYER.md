@@ -147,6 +147,42 @@ Karpathy-style health check:
 
 Outputs severity-grouped report.
 
+### `hpm wiki git <args>`
+
+Pass-through to `git` inside `~/.hpm/wiki/`.  Enables remote sync and change
+tracking without leaving the `hpm` CLI:
+
+```
+hpm wiki git remote add origin git@github.com:you/your-wiki.git
+hpm wiki git push -u origin main
+hpm wiki git pull --rebase
+hpm wiki git log --oneline -10
+hpm wiki git diff --stat
+```
+
+## Git Tracking
+
+Every wiki mutation is automatically version-controlled:
+
+- **`hpm wiki init`** — runs `git init`, writes `.gitignore` (excludes
+  `contested.json` and `*.tmp`), and makes an initial commit.
+- **`hpm wiki compile <topic>`** — auto-commits after writing each page with a
+  message like `wiki: compile page 'Topic Name' (topic-slug) [type=concept]`.
+- **`hpm wiki lint --fix`** — auto-commits the regenerated index.
+- **`hpm wiki sync`** — auto-commits after each page compiles (via `compile`).
+
+Auto-commits are best-effort: if git is not installed or the wiki dir isn't a
+repo, they silently no-op.  The design makes git tracking available without
+making it a hard dependency.
+
+This gives agents and users:
+  - **Change audit** — every page create, update, and index rebuild is recorded.
+  - **Multi-machine sync** — `hpm wiki git push` / `pull` shares the wiki
+    across machines.
+  - **Rollback** — `hpm wiki git revert <hash>` undoes a bad compile.
+  - **Conflict resolution** — if two agents compile different versions on
+    different machines, standard git merge handles it.
+
 ## MCP Tools
 
 New tool for the existing `hpm_mcp_server.py`:

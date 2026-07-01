@@ -84,6 +84,12 @@ Memory scores decay exponentially (half-life: 1 week) and are reinforced on ever
 | `hpm decay --run` | Compute decay scores for all entries |
 | `hpm decay --spot-check` | LLM spot-check low-scoring entries |
 | `hpm dashboard` | Generate and open HTML dashboard in browser |
+| `hpm wiki init` | Initialize the compiled knowledge wiki (`~/.hpm/wiki/`) with git tracking |
+| `hpm wiki compile <topic>` | Compile a wiki page from memory on a topic |
+| `hpm wiki find <query>` | Search the wiki for a topic |
+| `hpm wiki sync [--hours N]` | Batch-compile wiki pages from recent memories |
+| `hpm wiki lint [--fix]` | Health-check the wiki: orphans, broken links, stale pages |
+| `hpm wiki git <args>` | Run git commands (push, pull, log, status) inside the wiki repo |
 
 ## MCP Server (Hermes + Claude Code)
 
@@ -147,8 +153,18 @@ src/hpm/
   rerank.py       Cross-encoder reranker (Tier 2, transient load)
   sidecar.py      Hermes state.db poller daemon
   summarize.py    Conversation turn summarization
+  wiki/           Compiled knowledge wiki (git-tracked)
+    __init__.py
+    init.py       `hpm wiki init` — create dirs + git init
+    compile.py    `hpm wiki compile` — LLM compiles page from memories
+    find.py       `hpm wiki find` — search index, read page
+    sync.py       `hpm wiki sync` — batch compile from recent memories
+    lint.py       `hpm wiki lint` — orphans, broken links, stale checks
+    git.py        Git helpers: init repo, auto-commit, pass-through
+    git_cli.py    `hpm wiki git <args>` CLI wrapper
+    types.py      Frontmatter parsing, slugs, atomic write, index
 hpm_mcp_server.py  MCP server for AI agent integration
-tests/            pytest suite (48 tests)
+tests/            pytest suite (137 tests)
 ```
 
 ## Development
