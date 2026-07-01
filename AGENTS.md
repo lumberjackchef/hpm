@@ -125,12 +125,14 @@ Before any code editing in this repository, load the `code-workflow` skill and f
 ### Build order
 
 Phases 1, 2, 4, and 5 are complete. Phase 3 (Pi Extension) remains.
+Phase 6 is proposed — see `planned/DEFERRED_OPTIMIZATIONS.md#phase-6-proposed-agent-usage-validation--observability`.
 
 1. **Phase 1** — Foundation: sqlite-vec + hpm CLI (capture, query, save) + Hermes sidecar
 2. **Phase 2** — Hermes Enhancement: reranker + cited answers + `/memory-find`
 3. **Phase 3** — Pi Extension: TypeScript extension *(not started)*
 4. **Phase 4** — Cross-Agent Coherence: dedup + conflict detector *(complete)*
 5. **Phase 5** — Observability: decay evaluator + dashboard + cron
+6. **Phase 6 (proposed)** — Agent usage validation & observability *(evaluate items V1–V6 in planned/DEFERRED_OPTIMIZATIONS.md)*
 
 ### Per-commit workflow (Ryan's convention)
 
