@@ -84,6 +84,7 @@ hpm wiki compile <topic> [--force]
 hpm wiki find <query>
 hpm wiki sync [--hours N] [--dry-run]
 hpm wiki lint [--fix]
+hpm wiki git <args>          # e.g. status, log, push, pull, remote add
 
 # MCP server registration
 hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py

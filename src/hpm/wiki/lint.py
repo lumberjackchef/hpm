@@ -10,6 +10,7 @@ from typing import Any
 import click
 
 from .. import config
+from . import git as wiki_git
 from . import types as wiki_types
 
 
@@ -191,6 +192,7 @@ def cmd_lint(fix: bool = False) -> list[dict[str, str]]:
     # --- Auto-fix: regenerate index and contested index ---
     if fix:
         wiki_types.rebuild_index()
+        wiki_git.auto_commit("wiki: regenerate index after lint --fix")
         issues.append({"severity": "info", "message": "index.md and contested.json regenerated."})
 
     return issues

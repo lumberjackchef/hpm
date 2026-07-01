@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from .. import config
+from . import git as wiki_git
 from . import types as wiki_types
 
 
@@ -66,6 +67,14 @@ def cmd_init() -> None:
     click.echo(f"  Concepts:     {wiki_types.concepts_dir()}")
     click.echo(f"  Comparisons:  {wiki_types.comparisons_dir()}")
     click.echo(f"  Queries:      {wiki_types.queries_dir()}")
+
+    # Git-init the wiki so changes are tracked
+    if wiki_git.ensure_repo():
+        click.echo("  Initialised git repo (auto-commit on every change)")
+    elif wiki_git.is_git_repo():
+        click.echo("  Git repo already initialised")
+    else:
+        click.echo("  (git not found — skipping repo init)")
 
     # Append to log
     with wiki_types.log_path().open("a") as f:

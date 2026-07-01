@@ -11,6 +11,7 @@ import click
 
 from .. import db as db_module
 from .. import embed, llm
+from . import git as wiki_git
 from . import types as wiki_types
 
 logger = logging.getLogger(__name__)
@@ -164,6 +165,9 @@ def cmd_compile(query: str, force: bool = False) -> str:
         wiki_types.atomic_write(page_path, page_content)
         wiki_types.rebuild_index()
         _append_log(f"Compiled page '{title}' ({slug}) type={page_type} at {page_path}")
+        wiki_git.auto_commit(
+            f"wiki: compile page '{title}' ({slug}) [type={page_type}]"
+        )
 
         return f"Wiki page written: {page_path}"
 
