@@ -37,12 +37,13 @@ Or manually via environment variables:
 
 | Provider | `HPM_LLM_PROVIDER` | API Key | Default Model |
 |---|---|---|---|
-| OpenCode Go | `opencode` (default) | `OPENCODE_GO_API_KEY` | `minimax-m2.5` |
+| Z.AI / GLM (Coding Plan) | `zai` (default) | `GLM_API_KEY` | `glm-5.3-flash` |
+| OpenCode Go | `opencode` | `OPENCODE_GO_API_KEY` | `minimax-m2.5` |
 | Anthropic | `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
 | OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
 | OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | `anthropic/claude-sonnet-4` |
 
-If you have an Anthropic key but no OpenCode account, set:
+If you have an Anthropic key but no Z.AI/OpenCode account, set:
 
 ```bash
 export HPM_LLM_PROVIDER=anthropic
@@ -54,9 +55,10 @@ echo 'HPM_LLM_PROVIDER=anthropic' >> ~/.hpm/.env
 echo 'ANTHROPIC_API_KEY=sk-ant-***' >> ~/.hpm/.env
 ```
 
-If you do have an OpenCode key, the default works as-is:
+If you have an OpenCode key instead, set the provider explicitly (the default is zai):
 
 ```bash
+echo 'HPM_LLM_PROVIDER=opencode' >> ~/.hpm/.env
 echo 'OPENCODE_GO_API_KEY=***' >> ~/.hpm/.env
 ```
 

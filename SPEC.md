@@ -124,7 +124,7 @@ is the vector store.
           │    sentence-transformers (transient)       │
           │                                           │
           │  Tier 3: Cited-Answer Synthesis            │
-          │    LLM (opencode/anthropic/openai/...)     │
+          │    LLM (zai/opencode/anthropic/openai/...)  │
           └──────────┬──────────────────────────────┘
                      │
           ┌──────────▼──────────────────────────────┐
@@ -145,7 +145,7 @@ is the vector store.
 ### LLM Client
 
 A multi-provider wrapper supporting:
-- **OpenAI-compatible**: OpenCode Go, OpenAI, OpenRouter
+- **OpenAI-compatible**: Z.AI/GLM, OpenCode Go, OpenAI, OpenRouter
 - **Anthropic Messages API**: Claude
 
 Configured via `HPM_LLM_PROVIDER` and the corresponding `*_API_KEY` /

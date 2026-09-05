@@ -316,6 +316,12 @@ def setup() -> None:
         click.echo()
 
         providers = {
+            "zai": {
+                "label": "Z.AI / GLM (Coding Plan)",
+                "key_var": "GLM_API_KEY",
+                "default_model": "glm-5.3-flash",
+                "desc": "GLM Coding Plan endpoint. Best if you have a Z.AI plan.",
+            },
             "opencode": {
                 "label": "OpenCode Go",
                 "key_var": "OPENCODE_GO_API_KEY",

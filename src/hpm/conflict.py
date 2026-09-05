@@ -123,7 +123,10 @@ def judge_pair(
             messages=[{"role": "user", "content": prompt}],
             system=_JUDGE_SYSTEM_PROMPT,
             model=model,
-            max_tokens=32,
+            # glm-5.3-flash is a reasoning model: low budgets get fully consumed
+            # by reasoning and return empty content (verified live: 32/64 -> empty,
+            # 256 -> content). 512 leaves headroom for the one-word verdict.
+            max_tokens=512,
             temperature=0.1,
         )
     except Exception as exc:
@@ -136,7 +139,15 @@ def judge_pair(
         if re.search(rf"\b{re.escape(word)}\b", response_upper):
             return word
 
-    logger.warning("Unexpected LLM response for pair: %r", response[:100])
+    if not response.strip():
+        logger.warning(
+            "LLM returned empty content for pair %s / %s "
+            "(max_tokens likely consumed by reasoning) - treating as UNRELATED",
+            newer["id"],
+            older["id"],
+        )
+    else:
+        logger.warning("Unexpected LLM response for pair: %r", response[:100])
     return "UNRELATED"
 
 
