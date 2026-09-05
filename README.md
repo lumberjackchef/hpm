@@ -120,7 +120,9 @@ See [`CLAUDE_CODE_SETUP.md`](CLAUDE_CODE_SETUP.md) for full Claude Code integrat
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HPM_LLM_PROVIDER` | `opencode` | LLM provider: `opencode`, `anthropic`, `openai`, `openrouter` |
+| `HPM_LLM_PROVIDER` | `zai` | LLM provider: `zai`, `opencode`, `anthropic`, `openai`, `openrouter` |
+| `GLM_API_KEY` | — | API key for Z.AI / GLM (when provider is `zai`); auto-loaded from `~/.hermes/.env` when present |
+| `GLM_BASE_URL` | `https://api.z.ai/api/coding/paas/v4` | Z.AI GLM Coding Plan API base URL |
 | `OPENCODE_GO_API_KEY` | — | API key for OpenCode Go (when provider is `opencode`) |
 | `OPENCODE_GO_BASE_URL` | `https://opencode.ai/zen/go/v1` | OpenCode Go API base URL |
 | `ANTHROPIC_API_KEY` | — | API key for Anthropic (when provider is `anthropic`) |

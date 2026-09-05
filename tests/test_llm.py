@@ -8,10 +8,11 @@ from hpm import llm
 
 
 class TestProviderResolution:
-    def test_default_provider_is_opencode(self):
-        """Default provider resolves to opencode without env var."""
+    def test_default_provider_is_zai(self):
+        """Default provider resolves to zai without env var."""
         cfg = llm._provider_config()
         assert cfg["api_type"] == "openai"
+        assert "z.ai" in cfg["base_url"]
 
     def test_unknown_provider_raises(self, monkeypatch):
         monkeypatch.setattr("hpm.config.LLM_PROVIDER", "nonexistent")
@@ -22,7 +23,8 @@ class TestProviderResolution:
 class TestOpenAICall:
     def test_success(self, monkeypatch):
         """OpenAI-compatible call returns the message content."""
-        monkeypatch.setattr("hpm.config.OPENGINE_API_KEY", "sk-test")
+        monkeypatch.setattr("hpm.config.LLM_PROVIDER", "zai")
+        monkeypatch.setattr("hpm.config.GLM_API_KEY", "sk-test")
         mock_response = {
             "choices": [{"message": {"content": "Hello from AI"}}]
         }
@@ -47,7 +49,8 @@ class TestOpenAICall:
 
     def test_missing_api_key(self, monkeypatch):
         """Raises ValueError when API key is empty."""
-        monkeypatch.setattr("hpm.config.OPENGINE_API_KEY", "")
+        monkeypatch.setattr("hpm.config.LLM_PROVIDER", "zai")
+        monkeypatch.setattr("hpm.config.GLM_API_KEY", "")
         with pytest.raises(ValueError, match="API key"):
             llm.complete(messages=[{"role": "user", "content": "hi"}])
 

@@ -25,7 +25,14 @@ def _provider_config() -> dict[str, str]:
     """Return ``(api_key, base_url, default_model)`` for the active provider."""
     provider = config.LLM_PROVIDER
 
-    if provider == "opencode":
+    if provider == "zai":
+        return {
+            "api_key": config.GLM_API_KEY,
+            "base_url": config.GLM_BASE_URL,
+            "default_model": config.DEFAULT_MODELS["zai"],
+            "api_type": "openai",
+        }
+    elif provider == "opencode":
         return {
             "api_key": config.OPENGINE_API_KEY,
             "base_url": config.OPENGINE_BASE_URL,
@@ -56,7 +63,7 @@ def _provider_config() -> dict[str, str]:
     else:
         raise ValueError(
             f"Unknown HPM_LLM_PROVIDER: {provider!r}. "
-            f"Expected one of: opencode, openai, openrouter, anthropic"
+            f"Expected one of: zai, opencode, openai, openrouter, anthropic"
         )
 
 

@@ -48,7 +48,7 @@ entirely on-device with sqlite-vec.
 5. **sqite-vec with WAL mode** — `PRAGMA journal_mode=WAL;`, `PRAGMA busy_timeout=1000;`, write retry with exponential backoff (5 attempts, 100ms base, up to 800ms). Required from day one for concurrent access (Hermes sidecar, Pi extension, cron evaluator).
 6. **Local embeddings** — BGE-small-en-v1.5 (384d) via fastembed (ONNX). On-device CPU, zero API cost, ~3ms per embedding.
 7. **Cross-encoder reranker** — `cross-encoder/ms-marco-MiniLM-L-6-v2` for Tier 2. Loaded transiently on query (~200 MB spike, unloads after). Requires `sentence-transformers` (optional dep: `pip install hpm[reranker]`).
-8. **Summarization via configured LLM provider** — Set by `HPM_LLM_PROVIDER` env var. Supports OpenCode Go, Anthropic, OpenAI, and OpenRouter. No hardcoded endpoints.
+8. **Summarization via configured LLM provider** — Set by `HPM_LLM_PROVIDER` env var. Supports Z.AI/GLM, OpenCode Go, Anthropic, OpenAI, and OpenRouter. No hardcoded endpoints.
 9. **Daily log as audit trail** — Captures also append to `~/.hpm/daily/YYYY-MM-DD.md` as a plain-text backup, but the vector store is the primary recall source.
 10. **Structured answer with citations** — Recall returns a written answer citing specific source files and timestamps. If nothing relevant is found, says so explicitly (GBrain pattern).
 
@@ -94,7 +94,9 @@ hermes mcp add hpm --command python3 --args /path/to/hpm_mcp_server.py
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HPM_LLM_PROVIDER` | No | `opencode` (default), `anthropic`, `openai`, `openrouter` |
+| `HPM_LLM_PROVIDER` | No | `zai` (default), `opencode`, `anthropic`, `openai`, `openrouter` |
+| `GLM_API_KEY` | For zai | API key for Z.AI / GLM (auto-loaded from `~/.hermes/.env` when present) |
+| `GLM_BASE_URL` | No | Defaults to `https://api.z.ai/api/coding/paas/v4` |
 | `OPENCODE_GO_API_KEY` | For opencode | API key for OpenCode Go |
 | `OPENCODE_GO_BASE_URL` | No | Defaults to `https://opencode.ai/zen/go/v1` |
 | `ANTHROPIC_API_KEY` | For anthropic | API key for Anthropic |

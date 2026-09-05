@@ -44,10 +44,11 @@ _HPM_ENV_STUB = """# hpm configuration
 # Uncomment and set the variables you need.
 # This file is loaded automatically by hpm on every command.
 #
-# LLM provider: opencode (default), anthropic, openai, openrouter
-#HPM_LLM_PROVIDER=opencode
+# LLM provider: zai (default), opencode, anthropic, openai, openrouter
+#HPM_LLM_PROVIDER=zai
 #
 # Provider-specific API keys (set the one matching your provider):
+#GLM_API_KEY=
 #OPENCODE_GO_API_KEY=
 #ANTHROPIC_API_KEY=
 #OPENAI_API_KEY=
@@ -130,18 +131,23 @@ WIKI_DIR = HPM_DIR / "wiki"
 
 # ── LLM Provider ─────────────────────────────────────────────────────────
 # Set HPM_LLM_PROVIDER to one of:
-#   "opencode"   — OpenCode Go (OpenAI-compatible) [default]
-#   "anthropic"  — Anthropic Messages API
-#   "openai"     — OpenAI API / any OpenAI-compatible endpoint
-#   "openrouter" — OpenRouter (OpenAI-compatible, multi-model)
+#   "zai"         — Z.AI / GLM Coding Plan (OpenAI-compatible) [default]
+#   "opencode"    — OpenCode Go (OpenAI-compatible)
+#   "anthropic"   — Anthropic Messages API
+#   "openai"      — OpenAI API / any OpenAI-compatible endpoint
+#   "openrouter"  — OpenRouter (OpenAI-compatible, multi-model)
 
-LLM_PROVIDER = os.environ.get("HPM_LLM_PROVIDER", "opencode").lower()
+LLM_PROVIDER = os.environ.get("HPM_LLM_PROVIDER", "zai").lower()
 
 # Provider-specific env vars:
-#   opencode:  OPENCODE_GO_API_KEY,  OPENCODE_GO_BASE_URL
-#   openai:    OPENAI_API_KEY,       OPENAI_BASE_URL
-#   openrouter: OPENROUTER_API_KEY,  OPENROUTER_BASE_URL
-#   anthropic: ANTHROPIC_API_KEY,    ANTHROPIC_BASE_URL
+#   zai:        GLM_API_KEY,          GLM_BASE_URL
+#   opencode:   OPENCODE_GO_API_KEY,  OPENCODE_GO_BASE_URL
+#   openai:     OPENAI_API_KEY,       OPENAI_BASE_URL
+#   openrouter: OPENROUTER_API_KEY,   OPENROUTER_BASE_URL
+#   anthropic:  ANTHROPIC_API_KEY,    ANTHROPIC_BASE_URL
+
+GLM_API_KEY = os.environ.get("GLM_API_KEY", "")
+GLM_BASE_URL = os.environ.get("GLM_BASE_URL", "https://api.z.ai/api/coding/paas/v4")
 
 OPENGINE_API_KEY = os.environ.get("OPENCODE_GO_API_KEY", "")
 OPENGINE_BASE_URL = os.environ.get(
@@ -166,6 +172,7 @@ ANSWER_MODEL = os.environ.get("HPM_ANSWER_MODEL", "")
 
 # Fallback defaults per provider (used when HPM_LLM_MODEL is not set)
 DEFAULT_MODELS = {
+    "zai": "glm-5.3-flash",
     "opencode": "minimax-m2.5",
     "openai": "gpt-4o-mini",
     "openrouter": "anthropic/claude-sonnet-4",
