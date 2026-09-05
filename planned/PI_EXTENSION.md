@@ -82,7 +82,7 @@ Both agents use the same `hpm` CLI, avoiding duplicated memory logic:
 
 - Pi Coding Agent installed and configured locally
 - `hpm` CLI installed and in PATH
-- `OPENCODE_GO_API_KEY` set for summarization and answer synthesis
+- `GLM_API_KEY` set for summarization and answer synthesis (zai is the default provider; set `HPM_LLM_PROVIDER=opencode` + `OPENCODE_GO_API_KEY` instead to use OpenCode Go)
 
 ## Build Notes
 

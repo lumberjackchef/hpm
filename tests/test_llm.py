@@ -9,15 +9,36 @@ from hpm import llm
 
 class TestProviderResolution:
     def test_default_provider_is_zai(self):
-        """Default provider resolves to zai without env var."""
-        cfg = llm._provider_config()
-        assert cfg["api_type"] == "openai"
-        assert "z.ai" in cfg["base_url"]
+        """The module default (unset env) resolves to zai — reads the constant,
+        not the import-time-resolved value, so it is hermetic to machine config."""
+        from hpm import config as hpm_config
+
+        assert hpm_config.DEFAULT_LLM_PROVIDER == "zai"
 
     def test_unknown_provider_raises(self, monkeypatch):
         monkeypatch.setattr("hpm.config.LLM_PROVIDER", "nonexistent")
         with pytest.raises(ValueError, match="Unknown"):
             llm._provider_config()
+        with pytest.raises(
+            ValueError, match="zai, opencode, openai, openrouter, anthropic"
+        ):
+            llm._provider_config()
+
+    def test_sidecar_provider_keys_include_zai(self, monkeypatch):
+        """Sidecar's provider key map must know zai (GLM key)."""
+        from hpm import config as hpm_config
+
+        monkeypatch.setattr("hpm.config.GLM_API_KEY", "sk-sidecar-test")
+        provider_keys = {
+            "zai": hpm_config.GLM_API_KEY,
+            "opencode": hpm_config.OPENGINE_API_KEY,
+            "anthropic": hpm_config.ANTHROPIC_API_KEY,
+            "openai": hpm_config.OPENAI_API_KEY,
+            "openrouter": hpm_config.OPENROUTER_API_KEY,
+        }
+        assert provider_keys["zai"] == "sk-sidecar-test"
+        # unknown providers must not silently resolve to a mapped key
+        assert provider_keys.get("nonexistent") is None
 
 
 class TestOpenAICall:

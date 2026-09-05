@@ -137,7 +137,10 @@ WIKI_DIR = HPM_DIR / "wiki"
 #   "openai"      — OpenAI API / any OpenAI-compatible endpoint
 #   "openrouter"  — OpenRouter (OpenAI-compatible, multi-model)
 
-LLM_PROVIDER = os.environ.get("HPM_LLM_PROVIDER", "zai").lower()
+# Default provider when HPM_LLM_PROVIDER is unset (single source of truth for tests)
+DEFAULT_LLM_PROVIDER = "zai"
+
+LLM_PROVIDER = os.environ.get("HPM_LLM_PROVIDER", DEFAULT_LLM_PROVIDER).lower()
 
 # Provider-specific env vars:
 #   zai:        GLM_API_KEY,          GLM_BASE_URL
@@ -149,6 +152,8 @@ LLM_PROVIDER = os.environ.get("HPM_LLM_PROVIDER", "zai").lower()
 GLM_API_KEY = os.environ.get("GLM_API_KEY", "")
 GLM_BASE_URL = os.environ.get("GLM_BASE_URL", "https://api.z.ai/api/coding/paas/v4")
 
+# NOTE: OPENGINE_* is the historic internal name for the OpenCode Go provider;
+# its env vars are OPENCODE_GO_API_KEY / OPENCODE_GO_BASE_URL.
 OPENGINE_API_KEY = os.environ.get("OPENCODE_GO_API_KEY", "")
 OPENGINE_BASE_URL = os.environ.get(
     "OPENCODE_GO_BASE_URL", "https://opencode.ai/zen/go/v1"

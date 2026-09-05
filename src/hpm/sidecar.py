@@ -202,7 +202,13 @@ def run_sidecar(
         "openai": config.OPENAI_API_KEY,
         "openrouter": config.OPENROUTER_API_KEY,
     }
-    active_key = provider_keys.get(config.LLM_PROVIDER, config.GLM_API_KEY)
+    active_key = provider_keys.get(config.LLM_PROVIDER)
+    if active_key is None:
+        logger.warning(
+            "Unknown provider %r in HPM_LLM_PROVIDER - no key mapped.",
+            config.LLM_PROVIDER,
+        )
+        active_key = config.GLM_API_KEY
     if not active_key:
         logger.warning(
             "No API key configured for provider %r"

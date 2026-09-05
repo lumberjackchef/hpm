@@ -1,6 +1,6 @@
 """Multi-provider LLM client for summarization, answer synthesis, and spot-check.
 
-Supports OpenAI-compatible endpoints (OpenCode Go, OpenAI, OpenRouter)
+Supports OpenAI-compatible endpoints (Z.AI/GLM, OpenCode Go, OpenAI, OpenRouter)
 and Anthropic's native Messages API.
 
 Configured via the ``HPM_LLM_PROVIDER`` environment variable.

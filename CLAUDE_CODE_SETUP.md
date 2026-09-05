@@ -55,9 +55,10 @@ echo 'HPM_LLM_PROVIDER=anthropic' >> ~/.hpm/.env
 echo 'ANTHROPIC_API_KEY=sk-ant-***' >> ~/.hpm/.env
 ```
 
-If you do have an OpenCode key, the default works as-is:
+If you have an OpenCode key instead, set the provider explicitly (the default is zai):
 
 ```bash
+echo 'HPM_LLM_PROVIDER=opencode' >> ~/.hpm/.env
 echo 'OPENCODE_GO_API_KEY=***' >> ~/.hpm/.env
 ```
 

@@ -124,7 +124,7 @@ is the vector store.
           │    sentence-transformers (transient)       │
           │                                           │
           │  Tier 3: Cited-Answer Synthesis            │
-          │    LLM (opencode/anthropic/openai/...)     │
+          │    LLM (zai/opencode/anthropic/openai/...)  │
           └──────────┬──────────────────────────────┘
                      │
           ┌──────────▼──────────────────────────────┐
